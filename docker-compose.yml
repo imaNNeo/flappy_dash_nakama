@@ -1,0 +1,70 @@
+version: '3'
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:12.2-alpine
+    env_file:
+      - .env
+    volumes:
+      - data:/var/lib/postgresql/data
+    expose:
+      - "8080"
+      - "5432"
+    ports:
+      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "nakama"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+  nakama:
+    container_name: nakama
+    image: registry.heroiclabs.com/heroiclabs/nakama:3.22.0
+    env_file:
+      - .env
+    entrypoint:
+      - "/bin/sh"
+      - "-ecx"
+      - >
+          /nakama/nakama migrate up --database.address postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} &&
+          exec /nakama/nakama \
+            --name nakama1 \
+            --data_dir ./data/ \
+            --database.address postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}\
+            --logger.level DEBUG \
+            --logger.file /nakama/data/logfile.log \
+            --session.token_expiry_sec 7200 \
+            --session.encryption_key ${NAKAMA_ENCRYPTION_KEY} \
+            --session.refresh_encryption_key ${NAKAMA_REFRESH_ENCRYPTION_KEY} \
+            --console.username ${NAKAMA_CONSOLE_USERNAME} \
+            --console.password ${NAKAMA_CONSOLE_PASSWORD} \
+            --console.port 7351 \
+            --socket.server_key ${NAKAMA_SERVER_KEY} \
+            --socket.port 7350 \
+            --runtime.http_key ${NAKAMA_HTTP_KEY} \
+            --runtime.js_entrypoint /functions/build/index.js
+          
+    restart: always
+    links:
+      - "postgres:db"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/nakama/data
+    expose:
+      - "8349"
+      - "8350"
+      - "8351"
+    ports:
+      - "127.0.0.1:8349:7349"
+      - "127.0.0.1:8350:7350"
+      - "127.0.0.1:8351:7351"
+    healthcheck:
+      test: ["CMD", "/nakama/nakama", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  data:

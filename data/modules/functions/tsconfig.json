@@ -1,0 +1,20 @@
+{
+  "files": [
+    "src/main.ts",
+    "src/multi_dash_handler.ts",
+    "src/match_storage_helper.ts",
+    "src/models/responses/match_result_response.ts",
+    "src/models/match_result.ts",
+  ],
+  "compilerOptions": {
+    "target": "es5",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outFile": "./build/index.js",
+    "typeRoots": [
+      "./node_modules"
+    ]
+  }
+}
