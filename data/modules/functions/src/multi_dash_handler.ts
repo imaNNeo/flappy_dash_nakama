@@ -1,5 +1,5 @@
 const multiDashHandlerName = "multiDashMatchHandler";
-const tickRate = 5;
+const tickRate = 20;
 const minimumPlayers = 2;
 const baseWaitingForPlayersDuration = 40 * 1000;
 const checkToIncreaseWaitingTime = 20 * 1000;
@@ -32,7 +32,6 @@ interface State {
             lastKnownX: number;
             lastKnownY: number;
             lastKnownVelocityY: number;
-            lastKnownTimestamp: number;
             score: number;
             playingState: PlayingState;
             displayName: string;
@@ -122,7 +121,6 @@ let matchJoin: nkruntime.MatchJoinFunction<State> = function (ctx: nkruntime.Con
             lastKnownX: 0.0,
             lastKnownY: 0.0,
             lastKnownVelocityY: 0.0,
-            lastKnownTimestamp: 0,
             score: 0,
             playingState: PlayingState.Idle,
             displayName: account.user.displayName || '',
@@ -239,7 +237,6 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownX = 0.0;
                         state.players[message.sender.userId].lastKnownY = 0.0;
                         state.players[message.sender.userId].lastKnownVelocityY = 0.0;
-                        state.players[message.sender.userId].lastKnownTimestamp = 0;
                         dispatcher.broadcastMessage(DashOpCode.PlayerStarted, JSON.stringify(state), null, message.sender);
                         break;
                     case DashOpCode.PlayerJumped:
@@ -247,7 +244,6 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownX = data1['positionX'];
                         state.players[message.sender.userId].lastKnownY = data1['positionY'];
                         state.players[message.sender.userId].lastKnownVelocityY = data1['velocityY'];
-                        state.players[message.sender.userId].lastKnownTimestamp = data1['timestamp'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerJumped, JSON.stringify(state), null, message.sender);
                         break;
                     case DashOpCode.PlayerScored:
@@ -256,7 +252,6 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownX = data2['positionX'];
                         state.players[message.sender.userId].lastKnownY = data2['positionY'];
                         state.players[message.sender.userId].lastKnownVelocityY = data2['velocityY'];
-                        state.players[message.sender.userId].lastKnownTimestamp = data2['timestamp'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerScored, JSON.stringify(state), null, message.sender);
                         break;
                     case DashOpCode.PlayerDied:
@@ -265,7 +260,6 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownX = data3['positionX'];
                         state.players[message.sender.userId].lastKnownY = data3['positionY'];
                         state.players[message.sender.userId].lastKnownVelocityY = data3['velocityY'];
-                        state.players[message.sender.userId].lastKnownTimestamp = data3['timestamp'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
                         break;
                     case DashOpCode.PlayerIsIdle:
@@ -278,7 +272,6 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownX = data4['positionX'];
                         state.players[message.sender.userId].lastKnownY = data4['positionY'];
                         state.players[message.sender.userId].lastKnownVelocityY = data4['velocityY'];
-                        state.players[message.sender.userId].lastKnownTimestamp = data4['timestamp'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerCorrectPosition, JSON.stringify(state), null, message.sender);
                         break;
                 }
