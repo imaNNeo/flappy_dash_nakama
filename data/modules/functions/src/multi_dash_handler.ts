@@ -39,6 +39,7 @@ interface State {
         }
     },
     matchIsEmptySince?: number;
+    pipesPositions: number[];
 }
 
 enum DashOpCode {
@@ -70,6 +71,7 @@ let matchInit: nkruntime.MatchInitFunction<State> = function (ctx: nkruntime.Con
         currentPhase: MatchPhase.WaitingForPlayers,
         presences: [],
         players: {},
+        pipesPositions: [],
     }
 
 
@@ -177,15 +179,21 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
 
                 // Notify all players that the match has started.
                 const inLobbyPlayers = state.presences.filter(p => state.players[p.userId].isInLobby);
+
+                // Generate pipes based on the number of players.
+                const playersCount = inLobbyPlayers.length;
+                const pipesCount = Math.min(Math.max(playersCount * 2, 5), 42);
+                state.pipesPositions = [];
+                for (let i = 0; i < pipesCount; i++) {
+                    state.pipesPositions.push(Math.random() * 2 - 1);
+                }
+
                 dispatcher.broadcastMessage(DashOpCode.MatchStarted, JSON.stringify(state), inLobbyPlayers);
 
                 // Create a new match
                 nk.matchCreate(multiDashHandlerName);
 
                 // Todo: Set an initial position for each player.
-
-                // Create a new waiting match
-                // nk.matchCreate(multiDashHandlerName);
                 return { state };
             }
 
