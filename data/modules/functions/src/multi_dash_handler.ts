@@ -271,15 +271,19 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         dispatcher.broadcastMessage(DashOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
                         break;
                     case DashOpCode.PlayerIsIdle:
+                        let data4 = arrayBufferToJson(message.data);
                         state.players[message.sender.userId].playingState = PlayingState.Idle;
+                        state.players[message.sender.userId].lastKnownX = data4['positionX'];
+                        state.players[message.sender.userId].lastKnownY = data4['positionY'];
+                        state.players[message.sender.userId].lastKnownVelocityY = 0.0;
                         dispatcher.broadcastMessage(DashOpCode.PlayerIsIdle, JSON.stringify(state), null, message.sender);
                         break;
 
                     case DashOpCode.PlayerCorrectPosition:
-                        let data4 = arrayBufferToJson(message.data);
-                        state.players[message.sender.userId].lastKnownX = data4['positionX'];
-                        state.players[message.sender.userId].lastKnownY = data4['positionY'];
-                        state.players[message.sender.userId].lastKnownVelocityY = data4['velocityY'];
+                        let data5 = arrayBufferToJson(message.data);
+                        state.players[message.sender.userId].lastKnownX = data5['positionX'];
+                        state.players[message.sender.userId].lastKnownY = data5['positionY'];
+                        state.players[message.sender.userId].lastKnownVelocityY = data5['velocityY'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerCorrectPosition, JSON.stringify(state), null, message.sender);
                         break;
                 }
