@@ -7,6 +7,10 @@ function sendTelegramMessage(
     const TELEGRAM_TOKEN = ctx.env.TELEGRAM_BOT_API_KEY || '';
     const TELEGRAM_CHAT_ID = ctx.env.TELEGRAM_CHANNEL_ID || '';
 
+    if (ctx.env.IS_PRODUCTION != "true") {
+        return;
+    }
+
     if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
         return;
     }
