@@ -42,7 +42,9 @@ services:
             --socket.server_key ${NAKAMA_SERVER_KEY} \
             --socket.port 7350 \
             --runtime.http_key ${NAKAMA_HTTP_KEY} \
-            --runtime.js_entrypoint /functions/build/index.js
+            --runtime.js_entrypoint /functions/build/index.js \
+            --runtime.env "TELEGRAM_BOT_API_KEY=${TELEGRAM_BOT_API_KEY}" \
+            --runtime.env "TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}"
           
     restart: always
     links:

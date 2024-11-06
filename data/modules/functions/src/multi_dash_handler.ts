@@ -40,6 +40,7 @@ interface State {
     },
     matchIsEmptySince?: number;
     pipesPositions: number[];
+    matchFinishTextSent: boolean;
 }
 
 enum DashOpCode {
@@ -72,8 +73,8 @@ let matchInit: nkruntime.MatchInitFunction<State> = function (ctx: nkruntime.Con
         presences: [],
         players: {},
         pipesPositions: [],
+        matchFinishTextSent: false,
     }
-
 
     if (ctx.matchId) {
         addWaitingMatch(nk, ctx.matchId);
@@ -291,6 +292,10 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
 
             return { state };
         case MatchPhase.Finished:
+            if (!state.matchFinishTextSent) {
+                state.matchFinishTextSent = true;
+                sendTelegramMessage(nk, logger, ctx, formatMatchResultMessage(ctx, state));
+            }
             if (Date.now() > state.matchFinishesAt + removeMatchAfter) {
                 return null;
             }

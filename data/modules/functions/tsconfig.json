@@ -5,6 +5,7 @@
     "src/match_storage_helper.ts",
     "src/models/responses/match_result_response.ts",
     "src/models/match_result.ts",
+    "src/models/helpers/telegram_helper.ts"
   ],
   "compilerOptions": {
     "target": "es5",
