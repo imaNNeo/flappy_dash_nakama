@@ -1,9 +1,9 @@
 const multiDashHandlerName = "multiDashMatchHandler";
 const tickRate = 60;
 const minimumPlayers = 2;
-const baseWaitingForPlayersDuration = 40 * 1000;
-const checkToIncreaseWaitingTime = 20 * 1000;
-const matchDuration = 5 * 60 * 1000; 
+const baseWaitingForPlayersDuration = 30 * 1000;
+const checkToIncreaseWaitingTime = 10 * 1000;
+const matchDuration = 3 * 60 * 1000; 
 const removeMatchAfter = 10 * 1000;
 const terminateEmptyMatchAfter = 10 * 1000;
 
