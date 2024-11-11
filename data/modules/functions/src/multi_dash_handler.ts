@@ -6,6 +6,7 @@ const checkToIncreaseWaitingTime = 10 * 1000;
 const matchDuration = 3 * 60 * 1000; 
 const removeMatchAfter = 10 * 1000;
 const terminateEmptyMatchAfter = 10 * 1000;
+const playerSpawnsAgainAfter = 5 * 1000;
 
 
 enum MatchPhase {
@@ -36,6 +37,7 @@ interface State {
             playingState: PlayingState;
             displayName: string;
             userId: string;
+            spawnsAgainAt: number;
         }
     },
     matchIsEmptySince?: number;
@@ -61,6 +63,7 @@ enum DashOpCode {
     PlayerKickedFromLobby = 206,
     PlayerCorrectPosition = 207,
     PlayerDisplayNameUpdated = 208,
+    PlayerWillSpawnAt = 209,
 }
 
 let matchInit: nkruntime.MatchInitFunction<State> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, params: { [key: string]: string }) {
@@ -128,6 +131,7 @@ let matchJoin: nkruntime.MatchJoinFunction<State> = function (ctx: nkruntime.Con
             playingState: PlayingState.Idle,
             displayName: account.user.displayName || '',
             userId: presence.userId,
+            spawnsAgainAt: 0,
         }
     }
     state.presences = state.presences.concat(presences);
@@ -270,12 +274,18 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownY = data3['positionY'];
                         state.players[message.sender.userId].lastKnownVelocityY = data3['velocityY'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
+                        
+                        state.players[message.sender.userId].lastKnownX = data3['newPositionX'];
+                        state.players[message.sender.userId].lastKnownY = data3['newPositionY'];
+                        state.players[message.sender.userId].spawnsAgainAt = Date.now() + playerSpawnsAgainAfter;
+                        dispatcher.broadcastMessage(DashOpCode.PlayerWillSpawnAt, JSON.stringify(state), null, message.sender);
                         break;
                     case DashOpCode.PlayerIsIdle:
                         let data4 = arrayBufferToJson(message.data);
                         state.players[message.sender.userId].playingState = PlayingState.Idle;
                         state.players[message.sender.userId].lastKnownX = data4['positionX'];
                         state.players[message.sender.userId].lastKnownY = data4['positionY'];
+                        state.players[message.sender.userId].spawnsAgainAt = 0;
                         state.players[message.sender.userId].lastKnownVelocityY = 0.0;
                         dispatcher.broadcastMessage(DashOpCode.PlayerIsIdle, JSON.stringify(state), null, message.sender);
                         break;
