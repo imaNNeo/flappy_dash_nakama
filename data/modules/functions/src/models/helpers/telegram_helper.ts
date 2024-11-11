@@ -59,3 +59,12 @@ Player Rankings:
 ${sortedPlayers}
 `;
 }
+
+function formatPlayerJoinedMessage(state: State, playerId: string): string {
+    const player = state.players[playerId];
+    return `
+👤 ${player.displayName} joined the match!
+all in lobby players:
+${Object.keys(state.players).map(key => state.players[key].displayName).join("\n")}
+`;
+}
