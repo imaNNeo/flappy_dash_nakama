@@ -64,7 +64,11 @@ function formatPlayerJoinedMessage(state: State, playerId: string): string {
     const player = state.players[playerId];
     return `
 👤 ${player.displayName} joined the match!
-all in lobby players:
-${Object.keys(state.players).map(key => state.players[key].displayName).join("\n")}
+all in lobby players (isInLobby: true):
+${Object.keys(state.players)
+        .map(key => state.players[key])
+        .filter(player => player.isInLobby)
+        .map(player => player.displayName)
+        .join("\n")}
 `;
 }
