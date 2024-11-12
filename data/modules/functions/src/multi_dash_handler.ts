@@ -38,6 +38,7 @@ interface State {
             displayName: string;
             userId: string;
             spawnsAgainAt: number;
+            lastPing: number;
         }
     },
     matchIsEmptySince?: number;
@@ -52,7 +53,9 @@ enum DashOpCode {
     MatchPresencesUpdated = 102,
     MatchStarted = 103,
     MatchFinished = 104,
-    
+    MatchPing = 105,
+    MatchPong = 106,
+
     // Player
     PlayerJoinedTheLobby = 200,
     PlayerStarted = 201,
@@ -132,6 +135,7 @@ let matchJoin: nkruntime.MatchJoinFunction<State> = function (ctx: nkruntime.Con
             displayName: account.user.displayName || '',
             userId: presence.userId,
             spawnsAgainAt: 0,
+            lastPing: 0,
         }
     }
     state.presences = state.presences.concat(presences);
@@ -150,6 +154,22 @@ function arrayBufferToJson(buffer: ArrayBuffer) {
 }
 
 let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, dispatcher: nkruntime.MatchDispatcher, tick: number, state: State, messages: nkruntime.MatchMessage[]) {
+    for (let message of messages) {
+        let opCode = message.opCode;
+        switch (opCode) {
+            case DashOpCode.MatchPing:
+                let envelope = arrayBufferToJson(message.data);
+                state.players[message.sender.userId].lastPing = envelope['previousPing'];
+                const pingId = envelope['pingId'];
+                let sendingData = {
+                    serverReceiveTime: Date.now(),
+                    pingId: pingId,
+                }
+                dispatcher.broadcastMessage(DashOpCode.MatchPong, JSON.stringify(sendingData), [message.sender], null);
+                break;
+        }
+    }
+
     switch (state.currentPhase) {
         case MatchPhase.WaitingForPlayers:
             for (let message of messages) {
@@ -275,7 +295,7 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                         state.players[message.sender.userId].lastKnownY = data3['positionY'];
                         state.players[message.sender.userId].lastKnownVelocityY = data3['velocityY'];
                         dispatcher.broadcastMessage(DashOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
-                        
+
                         state.players[message.sender.userId].lastKnownX = data3['newPositionX'];
                         state.players[message.sender.userId].lastKnownY = data3['newPositionY'];
                         state.players[message.sender.userId].spawnsAgainAt = Date.now() + playerSpawnsAgainAfter;
