@@ -45,7 +45,8 @@ services:
             --runtime.js_entrypoint /functions/build/index.js \
             --runtime.env "IS_PRODUCTION=${IS_PRODUCTION}" \
             --runtime.env "TELEGRAM_BOT_API_KEY=${TELEGRAM_BOT_API_KEY}" \
-            --runtime.env "TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}"
+            --runtime.env "TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}" \
+            --runtime.env "APP_BASE_URL=${APP_BASE_URL}" \
           
     restart: always
     links:

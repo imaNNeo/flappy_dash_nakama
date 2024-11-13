@@ -178,7 +178,7 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                     case DashOpCode.PlayerJoinedTheLobby:
                         state.players[message.sender.userId].isInLobby = true;
                         dispatcher.broadcastMessage(DashOpCode.PlayerJoinedTheLobby, JSON.stringify(state), null, message.sender);
-                        sendTelegramMessage(nk, logger, ctx, formatPlayerJoinedMessage(state, message.sender.userId));
+                        sendTelegramMessage(nk, logger, ctx, formatPlayerJoinedMessage(ctx, state, message.sender.userId));
                         break;
                     case DashOpCode.PlayerDisplayNameUpdated:
                         const account = nk.accountGetId(message.sender.userId);

@@ -60,7 +60,11 @@ ${sortedPlayers}
 `;
 }
 
-function formatPlayerJoinedMessage(state: State, playerId: string): string {
+function formatPlayerJoinedMessage(ctx: nkruntime.Context, state: State, playerId: string): string {
+    const BASE_URL = ctx.env.APP_BASE_URL || '';
+    const matchId = ctx.matchId || "Unknown";
+    const lobbyUrl = `${BASE_URL}/#/lobby/${matchId}`;
+
     const player = state.players[playerId];
     return `
 👤 ${player.displayName} joined the match!
@@ -70,5 +74,8 @@ ${Object.keys(state.players)
         .filter(player => player.isInLobby)
         .map(player => player.displayName)
         .join("\n")}
+
+Click to join:
+${lobbyUrl}
 `;
 }
