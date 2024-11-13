@@ -15,7 +15,7 @@ let InitModule: nkruntime.InitModule = function (
     });
 
     createMainLeaderboard(ctx, logger, nk);
-    createMainMatch(ctx, logger, nk, initializer);
+    createMainMatch(nk);
     initializer.registerRpc("get_waiting_match", getWaitingMatchRpc);
     initializer.registerRpc("get_match_result", getMatchResultRpc);
 }
@@ -53,16 +53,12 @@ function getActiveWaitingMatches(nk: nkruntime.Nakama): string[] {
     return getWaitingMatches(nk);
 }
 
-function createMainMatch(
-    ctx: nkruntime.Context,
-    logger: nkruntime.Logger,
-    nk: nkruntime.Nakama,
-    initializer: nkruntime.Initializer,
-) {
+function createMainMatch(nk: nkruntime.Nakama): string | undefined {
     const matches = getActiveWaitingMatches(nk);
     if (matches.length <= 0) {
-        nk.matchCreate(multiDashHandlerName, {});
+        return nk.matchCreate(multiDashHandlerName, {});
     }
+    return undefined;
 }
 
 // RPC function to return a waiting match
@@ -77,7 +73,7 @@ let getWaitingMatchRpc: nkruntime.RpcFunction = function (
     if (matches.length > 0) {
         return matches[0];
     } else {
-        return '';
+        return createMainMatch(nk) || "";
     }
 }
 
