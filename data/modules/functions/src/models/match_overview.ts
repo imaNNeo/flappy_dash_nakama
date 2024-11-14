@@ -1,10 +1,9 @@
-interface MatchResultResponse {
-    id: string;
+interface MatchOverview {
     initializedAt: number;
     startedAt: number;
     finishedAt: number;
-    scores: {
+    top3Scores: {
+        playerId: string;
         score: number;
-        user: nkruntime.User;
     }[];
 }

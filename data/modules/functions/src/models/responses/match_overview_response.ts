@@ -1,4 +1,4 @@
-interface MatchResultResponse {
+interface MatchOverviewResponse {
     id: string;
     initializedAt: number;
     startedAt: number;

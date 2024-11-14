@@ -4,6 +4,7 @@ let InitModule: nkruntime.InitModule = function (
     nk: nkruntime.Nakama,
     initializer: nkruntime.Initializer,
 ) {
+    initializeMatchStorageHelper(initializer, logger);
     initializer.registerMatch(multiDashHandlerName, {
         matchInit,
         matchJoinAttempt,
@@ -18,6 +19,7 @@ let InitModule: nkruntime.InitModule = function (
     createMainMatch(nk);
     initializer.registerRpc("get_waiting_match", getWaitingMatchRpc);
     initializer.registerRpc("get_match_result", getMatchResultRpc);
+    initializer.registerRpc("get_last_match_overview", getLastMatchOverview);
     initializer.registerRpc("get_config", getConfig);
 }
 
@@ -98,6 +100,7 @@ let getMatchResultRpc: nkruntime.RpcFunction = function (
         usersMap[user.userId] = user;
     });
     const resultResponse: MatchResultResponse = {
+        id: matchId,
         initializedAt: matchResult.initializedAt,
         startedAt: matchResult.startedAt,
         finishedAt: matchResult.finishedAt,
@@ -122,4 +125,41 @@ let getConfig: nkruntime.RpcFunction = function (
     return JSON.stringify({
         minimumAppVersion: parseInt("00002"),
     });
+}
+
+// RPC function to return a match result
+let getLastMatchOverview: nkruntime.RpcFunction = function (
+    ctx: nkruntime.Context,
+    logger: nkruntime.Logger,
+    nk: nkruntime.Nakama,
+    payload: string
+): string {
+    const lastMatchId = getLastMatchId(nk);
+    const matchResult = getMatchResult(nk, lastMatchId);
+    if (!matchResult) {
+        throw new Error(`No match result found`);
+    }
+
+    const top3Scores = matchResult.scores.sort((a, b) => b.score - a.score).slice(0, 3);
+
+    const users = nk.usersGetId(top3Scores.map(score => score.playerId));
+
+    const usersMap: { [key: string]: nkruntime.User } = {};
+    users.forEach(user => {
+        usersMap[user.userId] = user;
+    });
+    const resultResponse: MatchOverviewResponse = {
+        id: lastMatchId,
+        initializedAt: matchResult.initializedAt,
+        startedAt: matchResult.startedAt,
+        finishedAt: matchResult.finishedAt,
+        scores: top3Scores.map(score => {
+            return {
+                score: score.score,
+                user: usersMap[score.playerId],
+            };
+        }),
+    };
+
+    return JSON.stringify(resultResponse);
 }
