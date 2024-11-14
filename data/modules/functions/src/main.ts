@@ -18,6 +18,7 @@ let InitModule: nkruntime.InitModule = function (
     createMainMatch(nk);
     initializer.registerRpc("get_waiting_match", getWaitingMatchRpc);
     initializer.registerRpc("get_match_result", getMatchResultRpc);
+    initializer.registerRpc("get_config", getConfig);
 }
 
 function createMainLeaderboard(
@@ -109,4 +110,16 @@ let getMatchResultRpc: nkruntime.RpcFunction = function (
     };
 
     return JSON.stringify(resultResponse);
+}
+
+// RPC function to return the server configuration
+let getConfig: nkruntime.RpcFunction = function (
+    ctx: nkruntime.Context,
+    logger: nkruntime.Logger,
+    nk: nkruntime.Nakama,
+    payload: string
+): string {
+    return JSON.stringify({
+        minimumAppVersion: parseInt("00001"),
+    });
 }
