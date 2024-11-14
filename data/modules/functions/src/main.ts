@@ -120,6 +120,6 @@ let getConfig: nkruntime.RpcFunction = function (
     payload: string
 ): string {
     return JSON.stringify({
-        minimumAppVersion: parseInt("00001"),
+        minimumAppVersion: parseInt("00002"),
     });
 }
