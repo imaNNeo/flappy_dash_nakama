@@ -257,13 +257,11 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                             handlePlayerStarted(state, message.sender.userId),
                         );
                         break;
-                    // case MatchOpCode.PlayerJumped:
-                    //     let data1 = arrayBufferToJson(message.data);
-                    //     state.players[message.sender.userId].lastKnownX = data1['positionX'];
-                    //     state.players[message.sender.userId].lastKnownY = data1['positionY'];
-                    //     state.players[message.sender.userId].lastKnownVelocityY = data1['velocityY'];
-                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerJumped, JSON.stringify(state), null, message.sender);
-                    //     break;
+                    case MatchOpCode.PlayerJumped:
+                        matchDiff.diffInfo.push(
+                            handlePlayerJumped(state, message.sender.userId),
+                        );
+                        break;
                     // case MatchOpCode.PlayerScored:
                     //     let data2 = arrayBufferToJson(message.data);
                     //     state.players[message.sender.userId].score += 1;
@@ -389,3 +387,15 @@ let movePlayers = function (state: MatchState): MatchMicroDiff[] {
     }
     return diffs;
 }
+
+function handlePlayerJumped(state: MatchState, userId: string): MatchMicroDiff {
+    state.players[userId].velocityY = state.players[userId].jumpForce;
+    return {
+        diffCode: MatchDiffCode.PlayerJumped,
+        userId: userId,
+        velocityY: state.players[userId].jumpForce,
+    }
+}
+
+
+
