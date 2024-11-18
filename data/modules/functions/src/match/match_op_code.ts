@@ -10,13 +10,14 @@ enum MatchOpCode {
 
     // Player
     PlayerJoinedTheLobby = 200,
-    PlayerStarted = 201,
-    PlayerJumped = 202,
-    PlayerScored = 203,
-    PlayerDied = 204,
-    PlayerIsIdle = 205,
-    PlayerKickedFromLobby = 206,
-    PlayerCorrectPosition = 207,
-    PlayerDisplayNameUpdated = 208,
-    PlayerWillSpawnAt = 209,
+    PlayerTickUpdate = 201,
+    PlayerStarted = 202,
+    PlayerJumped = 203,
+    PlayerScored = 204,
+    PlayerDied = 205,
+    PlayerIsIdle = 206,
+    PlayerKickedFromLobby = 207,
+    PlayerCorrectPosition = 208,
+    PlayerDisplayNameUpdated = 209,
+    PlayerWillSpawnAt = 210,
 }

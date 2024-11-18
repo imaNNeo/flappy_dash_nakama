@@ -10,19 +10,22 @@ const playerSpawnsAgainAfter = 5 * 1000;
 
 let matchInit: nkruntime.MatchInitFunction<MatchState> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, params: { [key: string]: string }) {
     let state: MatchState = {
+        playingTickRate: tickRate,
         playingTickNumber: 0,
         pipesDistance: 0,
         pipesNormalizedYPositions: [],
         pipesHoleGap: 0,
         pipesYRange: 0,
+        pipeWidth: 0,
         matchInitializedAt: Date.now(),
         matchRunsAt: Date.now() + baseWaitingForPlayersDuration,
         matchFinishesAt: 0,
         currentPhase: MatchPhase.WaitingForPlayers,
         presences: [],
-        gravityY: 1400.0,
+        gravityY: 0,
         matchFinishTextSent: false,
         players: {},
+        playersInitialXSpeed: 0,
     }
 
     if (ctx.matchId) {
@@ -82,6 +85,7 @@ let matchJoin: nkruntime.MatchJoinFunction<MatchState> = function (ctx: nkruntim
             userId: presence.userId,
             spawnsAgainAt: 0,
             lastPing: 0,
+            jumpForce: 0,
         }
         joinedPlayersInfo[presence.userId] = state.players[presence.userId];
     }
@@ -156,10 +160,12 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 // Notify all players that the match has started.
                 const inLobbyPlayers = state.presences.filter(p => state.players[p.userId].isInLobby);
 
-
+                state.gravityY = 1400.0;
+                state.playersInitialXSpeed = 160.0;
                 state.pipesDistance = 420.0;
                 state.pipesHoleGap = 240.0;
                 state.pipesYRange = 300.0;
+                state.pipeWidth = 82.0;
 
                 // Generate pipes based on the number of players.
                 const playersCount = inLobbyPlayers.length;
@@ -179,6 +185,7 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                     state.players[presence.userId].velocityY = 0;
                     state.players[presence.userId].score = 0;
                     state.players[presence.userId].diedCount = 0;
+                    state.players[presence.userId].jumpForce = -500.0;
                     state.players[presence.userId].playingState = PlayingState.Idle;
                 }
 
@@ -232,64 +239,76 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
             }
 
             // Handle the running match
+            state.playingTickNumber++;
+            const matchDiff: MatchDiff = {
+                tickNumber: state.playingTickNumber,
+                diffInfo: [],
+            }
+
             for (let message of messages) {
                 let opCode = message.opCode;
                 // decode utf8 message.data
-                // switch (opCode) {
-                //     case MatchOpCode.PlayerStarted:
-                //         state.players[message.sender.userId].playingState = PlayingState.Playing;
-                //         state.players[message.sender.userId].lastKnownX = 0.0;
-                //         state.players[message.sender.userId].lastKnownY = 0.0;
-                //         state.players[message.sender.userId].lastKnownVelocityY = 0.0;
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerStarted, JSON.stringify(state), null, message.sender);
-                //         break;
-                //     case MatchOpCode.PlayerJumped:
-                //         let data1 = arrayBufferToJson(message.data);
-                //         state.players[message.sender.userId].lastKnownX = data1['positionX'];
-                //         state.players[message.sender.userId].lastKnownY = data1['positionY'];
-                //         state.players[message.sender.userId].lastKnownVelocityY = data1['velocityY'];
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerJumped, JSON.stringify(state), null, message.sender);
-                //         break;
-                //     case MatchOpCode.PlayerScored:
-                //         let data2 = arrayBufferToJson(message.data);
-                //         state.players[message.sender.userId].score += 1;
-                //         state.players[message.sender.userId].lastKnownX = data2['positionX'];
-                //         state.players[message.sender.userId].lastKnownY = data2['positionY'];
-                //         state.players[message.sender.userId].lastKnownVelocityY = data2['velocityY'];
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerScored, JSON.stringify(state), null, message.sender);
-                //         break;
-                //     case MatchOpCode.PlayerDied:
-                //         let data3 = arrayBufferToJson(message.data);
-                //         state.players[message.sender.userId].playingState = PlayingState.Died;
-                //         state.players[message.sender.userId].lastKnownX = data3['positionX'];
-                //         state.players[message.sender.userId].lastKnownY = data3['positionY'];
-                //         state.players[message.sender.userId].lastKnownVelocityY = data3['velocityY'];
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
+                switch (opCode) {
+                    case MatchOpCode.PlayerStarted:
+                        matchDiff.diffInfo.push({
+                            diffCode: MatchDiffCode.PlayerStarted,
+                            userId: message.sender.userId,
+                            velocityX: state.playersInitialXSpeed,
+                            playingState: PlayingState.Playing,
+                        });
+                        state.players[message.sender.userId].playingState = PlayingState.Playing;
+                        state.players[message.sender.userId].velocityX = state.playersInitialXSpeed;
+                        break;
+                    // case MatchOpCode.PlayerJumped:
+                    //     let data1 = arrayBufferToJson(message.data);
+                    //     state.players[message.sender.userId].lastKnownX = data1['positionX'];
+                    //     state.players[message.sender.userId].lastKnownY = data1['positionY'];
+                    //     state.players[message.sender.userId].lastKnownVelocityY = data1['velocityY'];
+                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerJumped, JSON.stringify(state), null, message.sender);
+                    //     break;
+                    // case MatchOpCode.PlayerScored:
+                    //     let data2 = arrayBufferToJson(message.data);
+                    //     state.players[message.sender.userId].score += 1;
+                    //     state.players[message.sender.userId].lastKnownX = data2['positionX'];
+                    //     state.players[message.sender.userId].lastKnownY = data2['positionY'];
+                    //     state.players[message.sender.userId].lastKnownVelocityY = data2['velocityY'];
+                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerScored, JSON.stringify(state), null, message.sender);
+                    //     break;
+                    // case MatchOpCode.PlayerDied:
+                    //     let data3 = arrayBufferToJson(message.data);
+                    //     state.players[message.sender.userId].playingState = PlayingState.Died;
+                    //     state.players[message.sender.userId].lastKnownX = data3['positionX'];
+                    //     state.players[message.sender.userId].lastKnownY = data3['positionY'];
+                    //     state.players[message.sender.userId].lastKnownVelocityY = data3['velocityY'];
+                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
 
-                //         state.players[message.sender.userId].lastKnownX = data3['newPositionX'];
-                //         state.players[message.sender.userId].lastKnownY = data3['newPositionY'];
-                //         state.players[message.sender.userId].spawnsAgainAt = Date.now() + playerSpawnsAgainAfter;
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerWillSpawnAt, JSON.stringify(state), null, message.sender);
-                //         break;
-                //     case MatchOpCode.PlayerIsIdle:
-                //         let data4 = arrayBufferToJson(message.data);
-                //         state.players[message.sender.userId].playingState = PlayingState.Idle;
-                //         state.players[message.sender.userId].lastKnownX = data4['positionX'];
-                //         state.players[message.sender.userId].lastKnownY = data4['positionY'];
-                //         state.players[message.sender.userId].spawnsAgainAt = 0;
-                //         state.players[message.sender.userId].lastKnownVelocityY = 0.0;
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerIsIdle, JSON.stringify(state), null, message.sender);
-                //         break;
+                    //     state.players[message.sender.userId].lastKnownX = data3['newPositionX'];
+                    //     state.players[message.sender.userId].lastKnownY = data3['newPositionY'];
+                    //     state.players[message.sender.userId].spawnsAgainAt = Date.now() + playerSpawnsAgainAfter;
+                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerWillSpawnAt, JSON.stringify(state), null, message.sender);
+                    //     break;
+                    // case MatchOpCode.PlayerIsIdle:
+                    //     let data4 = arrayBufferToJson(message.data);
+                    //     state.players[message.sender.userId].playingState = PlayingState.Idle;
+                    //     state.players[message.sender.userId].lastKnownX = data4['positionX'];
+                    //     state.players[message.sender.userId].lastKnownY = data4['positionY'];
+                    //     state.players[message.sender.userId].spawnsAgainAt = 0;
+                    //     state.players[message.sender.userId].lastKnownVelocityY = 0.0;
+                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerIsIdle, JSON.stringify(state), null, message.sender);
+                    //     break;
 
-                //     case MatchOpCode.PlayerCorrectPosition:
-                //         let data5 = arrayBufferToJson(message.data);
-                //         state.players[message.sender.userId].lastKnownX = data5['positionX'];
-                //         state.players[message.sender.userId].lastKnownY = data5['positionY'];
-                //         state.players[message.sender.userId].lastKnownVelocityY = data5['velocityY'];
-                //         dispatcher.broadcastMessage(MatchOpCode.PlayerCorrectPosition, JSON.stringify(state), null, message.sender);
-                //         break;
-                // }
+                    // case MatchOpCode.PlayerCorrectPosition:
+                    //     let data5 = arrayBufferToJson(message.data);
+                    //     state.players[message.sender.userId].lastKnownX = data5['positionX'];
+                    //     state.players[message.sender.userId].lastKnownY = data5['positionY'];
+                    //     state.players[message.sender.userId].lastKnownVelocityY = data5['velocityY'];
+                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerCorrectPosition, JSON.stringify(state), null, message.sender);
+                    //     break;
+                }
             }
+
+            // iterate over diffInfo and broadcast the diff
+            dispatcher.broadcastMessage(MatchOpCode.PlayerTickUpdate, JSON.stringify(matchDiff));
 
             return { state };
         case MatchPhase.Finished:

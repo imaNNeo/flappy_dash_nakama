@@ -1,9 +1,11 @@
 interface MatchState {
+    playingTickRate: number;
     playingTickNumber: number;
     pipesDistance: number;
     pipesNormalizedYPositions: number[];
     pipesHoleGap: number;
     pipesYRange: number;
+    pipeWidth: number;
     matchInitializedAt: number;
     matchRunsAt: number;
     matchFinishesAt: number;
@@ -11,6 +13,7 @@ interface MatchState {
     presences: nkruntime.Presence[];
     gravityY: number;
     players: { [key: string]: PlayerInfo };
+    playersInitialXSpeed: number;
     matchIsEmptySince?: number;
     matchFinishTextSent: boolean;
 }
@@ -28,6 +31,7 @@ interface PlayerInfo {
     userId: string;
     spawnsAgainAt: number;
     lastPing: number;
+    jumpForce: number;
 }
 
 enum MatchPhase {
