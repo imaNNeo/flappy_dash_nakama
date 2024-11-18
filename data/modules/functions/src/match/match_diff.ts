@@ -6,6 +6,7 @@ enum MatchDiffCode {
   PlayerMoved = 4,
   PlayerDied = 5,
   PlayerScored = 6,
+  PlayerSpawnTimeDecreased = 7,
 }
 
 // MatchMicroDiff: Discriminated Union
@@ -43,11 +44,17 @@ type MatchMicroDiff =
     spawnAt: number;
     newX: number;
     newY: number;
+    diedCount: number;
   }
   | {
     readonly diffCode: MatchDiffCode.PlayerScored;
     userId: string;
     score: number;
+  }
+  | {
+    readonly diffCode: MatchDiffCode.PlayerSpawnTimeDecreased;
+    userId: string;
+    spawnsAgainIn: number;
   };
 
 // MatchDiff Container

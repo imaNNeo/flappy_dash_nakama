@@ -15,9 +15,8 @@ enum MatchOpCode {
     PlayerJumped = 203,
     PlayerScored = 204,
     PlayerDied = 205,
-    PlayerIsIdle = 206,
-    PlayerKickedFromLobby = 207,
-    PlayerCorrectPosition = 208,
-    PlayerDisplayNameUpdated = 209,
-    PlayerWillSpawnAt = 210,
+    PlayerKickedFromLobby = 206,
+    PlayerCorrectPosition = 207,
+    PlayerDisplayNameUpdated = 208,
+    PlayerWillSpawnAt = 209,
 }

@@ -29,7 +29,7 @@ interface PlayerInfo {
     playingState: PlayingState;
     displayName: string;
     userId: string;
-    spawnsAgainAt: number;
+    spawnsAgainIn: number;
     lastPing: number;
     jumpForce: number;
 }

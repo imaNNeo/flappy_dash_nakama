@@ -83,7 +83,7 @@ let matchJoin: nkruntime.MatchJoinFunction<MatchState> = function (ctx: nkruntim
             playingState: PlayingState.Idle,
             displayName: account.user.displayName || '',
             userId: presence.userId,
-            spawnsAgainAt: 0,
+            spawnsAgainIn: 0,
             lastPing: 0,
             jumpForce: 0,
         }
@@ -245,7 +245,8 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 diffInfo: [],
             }
             matchDiff.diffInfo.push(
-                ...movePlayers(state),
+                ...moveAlivePlayers(state),
+                ...spawnOrDecreaseDieTimer(state),
             );
 
             for (let message of messages) {
@@ -267,19 +268,11 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                             handlePlayerScored(state, message.sender.userId),
                         );
                         break;
-                    // case MatchOpCode.PlayerDied:
-                    //     let data3 = arrayBufferToJson(message.data);
-                    //     state.players[message.sender.userId].playingState = PlayingState.Died;
-                    //     state.players[message.sender.userId].lastKnownX = data3['positionX'];
-                    //     state.players[message.sender.userId].lastKnownY = data3['positionY'];
-                    //     state.players[message.sender.userId].lastKnownVelocityY = data3['velocityY'];
-                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerDied, JSON.stringify(state), null, message.sender);
-
-                    //     state.players[message.sender.userId].lastKnownX = data3['newPositionX'];
-                    //     state.players[message.sender.userId].lastKnownY = data3['newPositionY'];
-                    //     state.players[message.sender.userId].spawnsAgainAt = Date.now() + playerSpawnsAgainAfter;
-                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerWillSpawnAt, JSON.stringify(state), null, message.sender);
-                    //     break;
+                    case MatchOpCode.PlayerDied:
+                        matchDiff.diffInfo.push(
+                            handlePlayerDied(state, message.sender.userId),
+                        );
+                        break;
                     // case MatchOpCode.PlayerIsIdle:
                     //     let data4 = arrayBufferToJson(message.data);
                     //     state.players[message.sender.userId].playingState = PlayingState.Idle;
@@ -362,14 +355,14 @@ let handlePlayerStarted = function (state: MatchState, userId: string): MatchMic
     }
 }
 
-let movePlayers = function (state: MatchState): MatchMicroDiff[] {
+let moveAlivePlayers = function (state: MatchState): MatchMicroDiff[] {
     const diffs: MatchMicroDiff[] = [];
     for (let userId in state.players) {
         const player = state.players[userId];
         if (player.playingState !== PlayingState.Playing) {
             continue;
         }
-        const dt = state.playingTickRate / 1000;
+        const dt = 1000 / state.playingTickRate / 1000;
         player.velocityY += state.gravityY * dt;
         player.y += player.velocityY * dt;
         player.x += player.velocityX * dt;
@@ -401,4 +394,56 @@ function handlePlayerScored(state: MatchState, userId: string): MatchMicroDiff {
         userId: userId,
         score: state.players[userId].score,
     }
+}
+
+function handlePlayerDied(state: MatchState, userId: string): MatchMicroDiff {
+    state.players[userId].diedCount++;
+    state.players[userId].playingState = PlayingState.Died;
+    state.players[userId].spawnsAgainIn = playerSpawnsAgainAfter;
+    const newPosition = getPlayerRandomPosition(state);
+    const diedAtX = state.players[userId].x;
+    const diedAtY = state.players[userId].y;
+    state.players[userId].x = newPosition.x;
+    state.players[userId].y = newPosition.y;
+    return {
+        diffCode: MatchDiffCode.PlayerDied,
+        userId: userId,
+        x: diedAtX,
+        y: diedAtY,
+        spawnAt: state.players[userId].spawnsAgainIn,
+        newX: state.players[userId].x,
+        newY: state.players[userId].y,
+        diedCount: state.players[userId].diedCount,
+    }
+}
+
+let spawnOrDecreaseDieTimer = function (state: MatchState): MatchMicroDiff[] {
+    const diffs: MatchMicroDiff[] = [];
+    for (let userId in state.players) {
+        const player = state.players[userId];
+        if (player.playingState !== PlayingState.Died) {
+            continue;
+        }
+        const dt = 1000 / state.playingTickRate / 1000;
+
+        player.spawnsAgainIn -= dt;
+        if (player.spawnsAgainIn <= 0) {
+            player.playingState = PlayingState.Idle;
+            player.velocityX = 0;
+            player.velocityY = 0;
+            diffs.push({
+                diffCode: MatchDiffCode.PlayerSpawned,
+                userId: userId,
+                x: player.x,
+                y: player.y,
+            });
+        } else {
+            diffs.push({
+                diffCode: MatchDiffCode.PlayerSpawnTimeDecreased,
+                userId: userId,
+                spawnsAgainIn: player.spawnsAgainIn,
+            });
+        }
+    }
+    return diffs;
 }
