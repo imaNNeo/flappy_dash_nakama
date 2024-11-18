@@ -5,7 +5,7 @@ let InitModule: nkruntime.InitModule = function (
     initializer: nkruntime.Initializer,
 ) {
     initializeMatchStorageHelper(initializer, logger);
-    initializer.registerMatch(multiDashHandlerName, {
+    initializer.registerMatch(matchHandlerName, {
         matchInit,
         matchJoinAttempt,
         matchJoin,
@@ -59,7 +59,7 @@ function getActiveWaitingMatches(nk: nkruntime.Nakama): string[] {
 function createMainMatch(nk: nkruntime.Nakama): string | undefined {
     const matches = getActiveWaitingMatches(nk);
     if (matches.length <= 0) {
-        return nk.matchCreate(multiDashHandlerName, {});
+        return nk.matchCreate(matchHandlerName, {});
     }
     return undefined;
 }

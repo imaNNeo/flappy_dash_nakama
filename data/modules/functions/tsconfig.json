@@ -2,6 +2,10 @@
   "files": [
     "src/main.ts",
     "src/multi_dash_handler.ts",
+    "src/match/match_handler.ts",
+    "src/match/match_state.ts",
+    "src/match/match_op_code.ts",
+    "src/match/match_diff.ts",
     "src/match_storage_helper.ts",
     "src/models/responses/match_result_response.ts",
     "src/models/responses/match_overview_response.ts",
