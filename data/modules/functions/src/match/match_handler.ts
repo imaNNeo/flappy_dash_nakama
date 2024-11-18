@@ -244,14 +244,18 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 tickNumber: state.playingTickNumber,
                 diffInfo: [],
             }
+            matchDiff.diffInfo.push(
+                ...movePlayers(state),
+            );
 
             for (let message of messages) {
                 let opCode = message.opCode;
                 // decode utf8 message.data
                 switch (opCode) {
                     case MatchOpCode.PlayerStarted:
-                        const diff = handlePlayerStarted(state, message.sender.userId);
-                        matchDiff.diffInfo.push(diff);
+                        matchDiff.diffInfo.push(
+                            handlePlayerStarted(state, message.sender.userId),
+                        );
                         break;
                     // case MatchOpCode.PlayerJumped:
                     //     let data1 = arrayBufferToJson(message.data);
@@ -301,7 +305,6 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 }
             }
 
-            // iterate over diffInfo and broadcast the diff
             dispatcher.broadcastMessage(MatchOpCode.PlayerTickUpdate, JSON.stringify(matchDiff));
 
             return { state };
@@ -362,4 +365,27 @@ let handlePlayerStarted = function (state: MatchState, userId: string): MatchMic
         velocityX: state.playersInitialXSpeed,
         playingState: PlayingState.Playing,
     }
+}
+
+let movePlayers = function (state: MatchState): MatchMicroDiff[] {
+    const diffs: MatchMicroDiff[] = [];
+    for (let userId in state.players) {
+        const player = state.players[userId];
+        if (player.playingState !== PlayingState.Playing) {
+            continue;
+        }
+        const dt = state.playingTickRate / 1000;
+        player.velocityY += state.gravityY * dt;
+        player.y += player.velocityY * dt;
+        player.x += player.velocityX * dt;
+        diffs.push({
+            diffCode: MatchDiffCode.PlayerMoved,
+            userId: userId,
+            x: player.x,
+            y: player.y,
+            velocityX: player.velocityX,
+            velocityY: player.velocityY,
+        });
+    }
+    return diffs;
 }
