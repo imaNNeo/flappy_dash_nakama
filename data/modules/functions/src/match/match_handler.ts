@@ -273,23 +273,9 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                             handlePlayerDied(state, message.sender.userId),
                         );
                         break;
-                    // case MatchOpCode.PlayerIsIdle:
-                    //     let data4 = arrayBufferToJson(message.data);
-                    //     state.players[message.sender.userId].playingState = PlayingState.Idle;
-                    //     state.players[message.sender.userId].lastKnownX = data4['positionX'];
-                    //     state.players[message.sender.userId].lastKnownY = data4['positionY'];
-                    //     state.players[message.sender.userId].spawnsAgainAt = 0;
-                    //     state.players[message.sender.userId].lastKnownVelocityY = 0.0;
-                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerIsIdle, JSON.stringify(state), null, message.sender);
-                    //     break;
-
-                    // case MatchOpCode.PlayerCorrectPosition:
-                    //     let data5 = arrayBufferToJson(message.data);
-                    //     state.players[message.sender.userId].lastKnownX = data5['positionX'];
-                    //     state.players[message.sender.userId].lastKnownY = data5['positionY'];
-                    //     state.players[message.sender.userId].lastKnownVelocityY = data5['velocityY'];
-                    //     dispatcher.broadcastMessage(MatchOpCode.PlayerCorrectPosition, JSON.stringify(state), null, message.sender);
-                    //     break;
+                    case MatchOpCode.PlayerFullStateNeeded:
+                        dispatcher.broadcastMessage(MatchOpCode.PlayerFullStateNeeded, JSON.stringify(state), [message.sender]);
+                        break;       
                 }
             }
 

@@ -19,4 +19,5 @@ enum MatchOpCode {
     PlayerCorrectPosition = 207,
     PlayerDisplayNameUpdated = 208,
     PlayerWillSpawnAt = 209,
+    PlayerFullStateNeeded = 210,
 }

@@ -9,7 +9,6 @@ enum MatchDiffCode {
   PlayerSpawnTimeDecreased = 7,
 }
 
-// MatchMicroDiff: Discriminated Union
 type MatchMicroDiff =
   | {
     readonly diffCode: MatchDiffCode.PlayerSpawned;
