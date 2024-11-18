@@ -47,7 +47,7 @@ type MatchMicroDiff =
   | {
     readonly diffCode: MatchDiffCode.PlayerScored;
     userId: string;
-    velocityY: number;
+    score: number;
   };
 
 // MatchDiff Container
