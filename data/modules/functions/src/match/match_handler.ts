@@ -250,14 +250,8 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 // decode utf8 message.data
                 switch (opCode) {
                     case MatchOpCode.PlayerStarted:
-                        matchDiff.diffInfo.push({
-                            diffCode: MatchDiffCode.PlayerStarted,
-                            userId: message.sender.userId,
-                            velocityX: state.playersInitialXSpeed,
-                            playingState: PlayingState.Playing,
-                        });
-                        state.players[message.sender.userId].playingState = PlayingState.Playing;
-                        state.players[message.sender.userId].velocityX = state.playersInitialXSpeed;
+                        const diff = handlePlayerStarted(state, message.sender.userId);
+                        matchDiff.diffInfo.push(diff);
                         break;
                     // case MatchOpCode.PlayerJumped:
                     //     let data1 = arrayBufferToJson(message.data);
@@ -357,4 +351,15 @@ let getPlayerRandomPosition = function (state: MatchState): { x: number, y: numb
     const randomX = (spawnOnPipeIndex + 1) * state.pipesDistance;
     const randomY = state.pipesNormalizedYPositions[spawnOnPipeIndex] * state.pipesYRange;
     return { x: randomX, y: randomY };
+}
+
+let handlePlayerStarted = function (state: MatchState, userId: string): MatchMicroDiff {
+    state.players[userId].playingState = PlayingState.Playing;
+    state.players[userId].velocityX = state.playersInitialXSpeed;
+    return {
+        diffCode: MatchDiffCode.PlayerStarted,
+        userId: userId,
+        velocityX: state.playersInitialXSpeed,
+        playingState: PlayingState.Playing,
+    }
 }
