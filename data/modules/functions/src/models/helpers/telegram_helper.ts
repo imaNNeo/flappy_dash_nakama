@@ -38,6 +38,7 @@ function sendTelegramMessage(
 function formatMatchResultMessage(ctx: nkruntime.Context, state: State): string {
     const matchId = ctx.matchId || "Unknown";
     const matchFinishTime = new Date(state.matchFinishesAt).toLocaleString();
+    const matchDuration = state.matchFinishesAt - state.matchRunsAt;
     const formattedDuration = `${Math.floor(matchDuration / 60000)} minutes and ${(matchDuration % 60000) / 1000} seconds`;
     const playersCount = Object.keys(state.players).length;
 

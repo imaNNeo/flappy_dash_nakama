@@ -3,7 +3,6 @@ const tickRate = 60;
 const minimumPlayers = 2;
 const baseWaitingForPlayersDuration = 30 * 1000;
 const checkToIncreaseWaitingTime = 10 * 1000;
-const matchDuration = 3 * 60 * 1000; 
 const removeMatchAfter = 10 * 1000;
 const terminateEmptyMatchAfter = 10 * 1000;
 const playerSpawnsAgainAfter = 5 * 1000;
@@ -196,6 +195,15 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                     removeWaitingMatch(nk, ctx.matchId);
                 }
                 state.currentPhase = MatchPhase.Running;
+
+                var matchDuration: number;
+                if (playersInLobbyCount <= 3) {
+                    matchDuration = 2 * 60 * 1000;
+                } else if (playersInLobbyCount <= 5) {
+                    matchDuration = 2.5 * 60 * 1000;
+                } else {
+                    matchDuration = 3 * 60 * 1000;
+                }
 
                 state.matchFinishesAt = Date.now() + matchDuration;
 
