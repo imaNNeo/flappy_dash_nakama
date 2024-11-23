@@ -216,7 +216,7 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
 
                 // Generate pipes based on the number of players.
                 const playersCount = inLobbyPlayers.length;
-                const pipesCount = Math.min(Math.ceil((playersCount * 1.5)), 42);
+                const pipesCount = Math.max(Math.min(playersCount, 42), 3);
                 state.pipesPositions = [];
                 for (let i = 0; i < pipesCount; i++) {
                     state.pipesPositions.push(Math.random() * 2 - 1);
