@@ -24,15 +24,15 @@ function sendTelegramMessage(
     const body = JSON.stringify(payload);
 
     logger.info(`Sending message to Telegram: ${message}, body: ${body}`);
-    // const response = nk.httpRequest(
-    //     url,
-    //     "post",
-    //     {
-    //         "Content-Type": "application/json",
-    //     },
-    //     body,
-    // );
-    // logger.info(`Telegram response: ${response.code}, ${response.body}`);
+    const response = nk.httpRequest(
+        url,
+        "post",
+        {
+            "Content-Type": "application/json",
+        },
+        body,
+    );
+    logger.info(`Telegram response: ${response.code}, ${response.body}`);
 }
 
 function formatMatchResultMessage(ctx: nkruntime.Context, state: State): string {
