@@ -35,7 +35,7 @@ function sendTelegramMessage(
     logger.info(`Telegram response: ${response.code}, ${response.body}`);
 }
 
-function formatMatchResultMessage(ctx: nkruntime.Context, state: State): string {
+function formatMatchResultMessage(ctx: nkruntime.Context, state: MatchState): string {
     const matchId = ctx.matchId || "Unknown";
     const matchFinishTime = new Date(state.matchFinishesAt).toLocaleString();
     const matchDuration = state.matchFinishesAt - state.matchRunsAt;
@@ -61,7 +61,7 @@ ${sortedPlayers}
 `;
 }
 
-function formatPlayerJoinedMessage(ctx: nkruntime.Context, state: State, playerId: string): string {
+function formatPlayerJoinedMessage(ctx: nkruntime.Context, state: MatchState, playerId: string): string {
     const BASE_URL = ctx.env.APP_BASE_URL || '';
     const matchId = ctx.matchId || "Unknown";
     const lobbyUrl = `${BASE_URL}/#/lobby/${matchId}`;

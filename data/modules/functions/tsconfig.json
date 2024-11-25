@@ -1,7 +1,6 @@
 {
   "files": [
     "src/main.ts",
-    "src/multi_dash_handler.ts",
     "src/match/match_handler.ts",
     "src/match/match_state.ts",
     "src/match/match_op_code.ts",
