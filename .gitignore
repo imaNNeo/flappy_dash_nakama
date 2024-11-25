@@ -1,2 +1,4 @@
 data/logfile.log
 .env
+
+.idea/
