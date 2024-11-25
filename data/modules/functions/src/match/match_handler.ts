@@ -3,7 +3,6 @@ const tickRate = 40;
 const minimumPlayers = 2;
 const baseWaitingForPlayersDuration = 30 * 1000;
 const checkToIncreaseWaitingTime = 10 * 1000;
-const matchDuration = 3 * 60 * 1000;
 const removeMatchAfter = 10 * 1000;
 const terminateEmptyMatchAfter = 10 * 1000;
 const playerSpawnsAgainAfter = 5 * 1000;
@@ -151,6 +150,15 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 }
                 state.currentPhase = MatchPhase.Running;
 
+                var matchDuration: number;
+                if (playersInLobbyCount <= 3) {
+                    matchDuration = 2 * 60 * 1000;
+                } else if (playersInLobbyCount <= 5) {
+                    matchDuration = 2.5 * 60 * 1000;
+                } else {
+                    matchDuration = 3 * 60 * 1000;
+                }
+
                 state.matchFinishesAt = Date.now() + matchDuration;
 
                 // Kick the players that are not in the lobby.
@@ -170,7 +178,7 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                 // Generate pipes based on the number of players.
                 const playersCount = inLobbyPlayers.length;
 
-                const pipesCount = Math.min(Math.ceil((playersCount * 1.5)), 42);
+                const pipesCount = Math.max(Math.min(playersCount, 42), 3);
                 state.pipesNormalizedYPositions = [];
                 for (let i = 0; i < pipesCount; i++) {
                     state.pipesNormalizedYPositions.push(Math.random() * 2 - 1);
