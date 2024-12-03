@@ -40,7 +40,7 @@ type MatchMicroDiff =
     userId: string;
     x: number;
     y: number;
-    spawnAt: number;
+    spawnsAgainIn: number;
     newX: number;
     newY: number;
     diedCount: number;
@@ -58,6 +58,7 @@ type MatchMicroDiff =
 
 // MatchDiff Container
 interface MatchDiff {
+  tickTimestamp: number;
   tickNumber: number;
   diffInfo: MatchMicroDiff[];
 }

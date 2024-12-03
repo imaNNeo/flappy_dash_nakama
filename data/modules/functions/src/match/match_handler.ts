@@ -5,7 +5,6 @@ const baseWaitingForPlayersDuration = 30 * 1000;
 const checkToIncreaseWaitingTime = 10 * 1000;
 const removeMatchAfter = 10 * 1000;
 const terminateEmptyMatchAfter = 10 * 1000;
-const playerSpawnsAgainAfter = 5 * 1000;
 
 let matchInit: nkruntime.MatchInitFunction<MatchState> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, params: { [key: string]: string }) {
     let state: MatchState = {
@@ -25,6 +24,7 @@ let matchInit: nkruntime.MatchInitFunction<MatchState> = function (ctx: nkruntim
         matchFinishTextSent: false,
         players: {},
         playersInitialXSpeed: 0,
+        playerSpawnsAgainAfter: 5 * 1000,
     }
 
     if (ctx.matchId) {
@@ -90,7 +90,7 @@ let matchJoin: nkruntime.MatchJoinFunction<MatchState> = function (ctx: nkruntim
     }
     state.presences = state.presences.concat(presences);
     dispatcher.broadcastMessage(MatchOpCode.MatchWelcome, JSON.stringify(state), presences);
-    dispatcher.broadcastMessage(MatchOpCode.MatchPresencesUpdated, JSON.stringify(joinedPlayersInfo));
+    dispatcher.broadcastMessage(MatchOpCode.MatchPlayersJoined, JSON.stringify(joinedPlayersInfo));
     return { state };
 }
 
@@ -131,11 +131,11 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                         dispatcher.broadcastMessage(MatchOpCode.PlayerJoinedTheLobby, JSON.stringify(joinedPlayer), null, message.sender);
                         sendTelegramMessage(nk, logger, ctx, formatPlayerJoinedMessage(ctx, state, message.sender.userId));
                         break;
-                    case MatchOpCode.PlayerDisplayNameUpdated:
+                    case MatchOpCode.MatchPlayerNameUpdated:
                         const account = nk.accountGetId(message.sender.userId);
                         state.players[message.sender.userId].displayName = account.user.displayName || '';
                         const newDisplayName = state.players[message.sender.userId].displayName;
-                        dispatcher.broadcastMessage(MatchOpCode.MatchPresencesUpdated, JSON.stringify({
+                        dispatcher.broadcastMessage(MatchOpCode.MatchPlayerNameUpdated, JSON.stringify({
                             "newDisplayName": newDisplayName,
                         }), null, message.sender);
                         break;
@@ -250,6 +250,7 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
             state.playingTickNumber++;
             const matchDiff: MatchDiff = {
                 tickNumber: state.playingTickNumber,
+                tickTimestamp: -1,
                 diffInfo: [],
             }
             matchDiff.diffInfo.push(
@@ -271,10 +272,10 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                             handlePlayerJumped(state, message.sender.userId),
                         );
                         break;
-                    case MatchOpCode.PlayerScored:
-                        matchDiff.diffInfo.push(
-                            handlePlayerScored(state, message.sender.userId),
-                        );
+                        case MatchOpCode.PlayerScored:
+                            matchDiff.diffInfo.push(
+                                handlePlayerScored(state, message.sender.userId),
+                            );
                         break;
                     case MatchOpCode.PlayerDied:
                         matchDiff.diffInfo.push(
@@ -286,7 +287,7 @@ let matchLoop: nkruntime.MatchLoopFunction<MatchState> = function (ctx: nkruntim
                         break;       
                 }
             }
-
+            matchDiff.tickTimestamp = Date.now();
             dispatcher.broadcastMessage(MatchOpCode.PlayerTickUpdate, JSON.stringify(matchDiff));
 
             return { state };
@@ -319,7 +320,9 @@ let matchLeave: nkruntime.MatchLeaveFunction<MatchState> = function (ctx: nkrunt
         !presences.some(pp => pp.userId === p.userId)
     )
 
-    dispatcher.broadcastMessage(MatchOpCode.MatchPresencesUpdated, JSON.stringify(state));
+    const leftPalyers = presences.map(p => p.userId);
+
+    dispatcher.broadcastMessage(MatchOpCode.MatchPlayersLeft, JSON.stringify(leftPalyers));
 
     return { state };
 }
@@ -360,6 +363,12 @@ let moveAlivePlayers = function (state: MatchState): MatchMicroDiff[] {
         player.velocityY += state.gravityY * dt;
         player.y += player.velocityY * dt;
         player.x += player.velocityX * dt;
+
+        const worldWidth = state.pipesDistance * state.pipesNormalizedYPositions.length;
+        if (player.x > worldWidth) {
+            player.x = player.x - worldWidth;
+        }
+
         diffs.push({
             diffCode: MatchDiffCode.PlayerMoved,
             userId: userId,
@@ -393,7 +402,7 @@ function handlePlayerScored(state: MatchState, userId: string): MatchMicroDiff {
 function handlePlayerDied(state: MatchState, userId: string): MatchMicroDiff {
     state.players[userId].diedCount++;
     state.players[userId].playingState = PlayingState.Died;
-    state.players[userId].spawnsAgainIn = playerSpawnsAgainAfter;
+    state.players[userId].spawnsAgainIn = state.playerSpawnsAgainAfter;
     const newPosition = getPlayerRandomPosition(state);
     const diedAtX = state.players[userId].x;
     const diedAtY = state.players[userId].y;
@@ -404,7 +413,7 @@ function handlePlayerDied(state: MatchState, userId: string): MatchMicroDiff {
         userId: userId,
         x: diedAtX,
         y: diedAtY,
-        spawnAt: state.players[userId].spawnsAgainIn,
+        spawnsAgainIn: state.players[userId].spawnsAgainIn,
         newX: state.players[userId].x,
         newY: state.players[userId].y,
         diedCount: state.players[userId].diedCount,
@@ -418,9 +427,9 @@ let spawnOrDecreaseDieTimer = function (state: MatchState): MatchMicroDiff[] {
         if (player.playingState !== PlayingState.Died) {
             continue;
         }
-        const dt = 1000 / state.playingTickRate / 1000;
+        const dt = 1000 / state.playingTickRate / 1000; // 0.025
 
-        player.spawnsAgainIn -= dt;
+        player.spawnsAgainIn -= dt * 1000; // 25ms
         if (player.spawnsAgainIn <= 0) {
             player.playingState = PlayingState.Idle;
             player.velocityX = 0;

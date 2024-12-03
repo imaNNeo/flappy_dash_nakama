@@ -16,6 +16,7 @@ interface MatchState {
     playersInitialXSpeed: number;
     matchIsEmptySince?: number;
     matchFinishTextSent: boolean;
+    playerSpawnsAgainAfter: number;
 }
 
 interface PlayerInfo {
