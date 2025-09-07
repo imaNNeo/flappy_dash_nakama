@@ -6,13 +6,11 @@ services:
     env_file:
       - .env
     volumes:
-      - data:/var/lib/postgresql/data
+      - /mnt/ssd/flappy-dash-nakama/pgdata:/var/lib/postgresql/data
     expose:
-      - "8080"
       - "5432"
     ports:
-      - "127.0.0.1:5432:5432"
-      - "127.0.0.1:8080:8080"
+      - "5432:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "nakama"]
       interval: 3s
@@ -20,7 +18,8 @@ services:
       retries: 5
   nakama:
     container_name: nakama
-    image: registry.heroiclabs.com/heroiclabs/nakama:3.22.0
+    user: "1000:1000"
+    image: nakama-arm64:3.31.0
     env_file:
       - .env
     entrypoint:
@@ -47,8 +46,7 @@ services:
             --runtime.env "TELEGRAM_BOT_API_KEY=${TELEGRAM_BOT_API_KEY}" \
             --runtime.env "TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}" \
             --runtime.env "APP_BASE_URL=${APP_BASE_URL}" \
-          
-    restart: always
+    restart: unless-stopped
     links:
       - "postgres:db"
     depends_on:
@@ -61,13 +59,11 @@ services:
       - "8350"
       - "8351"
     ports:
-      - "127.0.0.1:8349:7349"
-      - "127.0.0.1:8350:7350"
-      - "127.0.0.1:8351:7351"
+      - "8349:7349"
+      - "8350:7350"
+      - "8351:7351"
     healthcheck:
       test: ["CMD", "/nakama/nakama", "healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 5
-volumes:
-  data:
