@@ -121,9 +121,12 @@ let getLastMatchId = (nk: nkruntime.Nakama): string => {
     const order = ["-value.finishedAt"]; // Sort by finishedAt in descending order
 
     try {
-        let results = nk.storageIndexList(indexName, query, limit, order);
-        if (results.length > 0) {
-            return results[0].key; // Get the key of the latest match result
+        const res = nk.storageIndexList(indexName, query, limit, order) as
+            | { objects: nkruntime.StorageObject[]; cursor?: string | null }
+            | nkruntime.StorageObject[]; // fallback if typings are old
+        const objects = Array.isArray(res) ? res : res.objects;
+        if (objects && objects.length > 0) {
+            return objects[0].key; // latest match result key
         } else {
             throw new Error("No match results found");
         }
