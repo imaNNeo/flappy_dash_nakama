@@ -140,6 +140,47 @@ function inLobbyPresences(state: State): nkruntime.Presence[] {
     return state.presences.filter(p => state.players[p.userId] && state.players[p.userId].isInLobby);
 }
 
+// Positions only need sub-pixel precision; full doubles make up a big part of
+// every message.
+function round2(n: number): number {
+    return Math.round(n * 100) / 100;
+}
+
+// Every player event carries the whole match state to every player, so this
+// is the bulk of the server's outgoing traffic. Only send the fields the
+// clients read (server-only fields such as lastPing, matchFinishTextSent and
+// the presences' node/reason stay out) and keep numbers short.
+function serializeState(state: State): string {
+    const players: { [key: string]: object } = {};
+    for (const userId in state.players) {
+        const p = state.players[userId];
+        players[userId] = {
+            userId: p.userId,
+            displayName: p.displayName,
+            isInLobby: p.isInLobby,
+            lastKnownX: round2(p.lastKnownX),
+            lastKnownY: round2(p.lastKnownY),
+            lastKnownVelocityY: round2(p.lastKnownVelocityY),
+            score: p.score,
+            playingState: p.playingState,
+            spawnsAgainAt: p.spawnsAgainAt,
+        };
+    }
+    return JSON.stringify({
+        matchInitializedAt: state.matchInitializedAt,
+        matchRunsAt: state.matchRunsAt,
+        matchFinishesAt: state.matchFinishesAt,
+        currentPhase: state.currentPhase,
+        presences: state.presences.map(p => ({
+            userId: p.userId,
+            sessionId: p.sessionId,
+            username: p.username,
+        })),
+        players,
+        pipesPositions: state.pipesPositions,
+    });
+}
+
 let matchInit: nkruntime.MatchInitFunction<State> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, params: { [key: string]: string }) {
     const now = Date.now();
     let state: State = {
@@ -213,8 +254,8 @@ let matchJoin: nkruntime.MatchJoinFunction<State> = function (ctx: nkruntime.Con
         state.presences.push(presence);
     }
     delete state.matchIsEmptySince;
-    dispatcher.broadcastMessage(DashOpCode.MatchWelcome, JSON.stringify(state), presences);
-    dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, JSON.stringify(state));
+    dispatcher.broadcastMessage(DashOpCode.MatchWelcome, serializeState(state), presences);
+    dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, serializeState(state));
     return { state };
 }
 
@@ -241,13 +282,13 @@ function handleMessage(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkr
             switch (message.opCode) {
                 case DashOpCode.PlayerJoinedTheLobby:
                     player.isInLobby = true;
-                    dispatcher.broadcastMessage(DashOpCode.PlayerJoinedTheLobby, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerJoinedTheLobby, serializeState(state), null, sender);
                     sendTelegramMessage(nk, logger, ctx, formatPlayerJoinedMessage(ctx, state, sender.userId));
                     break;
                 case DashOpCode.PlayerDisplayNameUpdated:
                     const account = nk.accountGetId(sender.userId);
                     player.displayName = account.user.displayName || '';
-                    dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, serializeState(state), null, sender);
                     break;
             }
             break;
@@ -258,27 +299,27 @@ function handleMessage(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkr
                     player.lastKnownX = 0.0;
                     player.lastKnownY = 0.0;
                     player.lastKnownVelocityY = 0.0;
-                    dispatcher.broadcastMessage(DashOpCode.PlayerStarted, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerStarted, serializeState(state), null, sender);
                     break;
                 case DashOpCode.PlayerJumped:
                     updatePosition(player, readJson(nk, message.data));
-                    dispatcher.broadcastMessage(DashOpCode.PlayerJumped, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerJumped, serializeState(state), null, sender);
                     break;
                 case DashOpCode.PlayerScored:
                     player.score += 1;
                     updatePosition(player, readJson(nk, message.data));
-                    dispatcher.broadcastMessage(DashOpCode.PlayerScored, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerScored, serializeState(state), null, sender);
                     break;
                 case DashOpCode.PlayerDied: {
                     const data = readJson(nk, message.data);
                     player.playingState = PlayingState.Died;
                     updatePosition(player, data);
-                    dispatcher.broadcastMessage(DashOpCode.PlayerDied, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerDied, serializeState(state), null, sender);
 
                     player.lastKnownX = toNumber(data['newPositionX'], player.lastKnownX);
                     player.lastKnownY = toNumber(data['newPositionY'], player.lastKnownY);
                     player.spawnsAgainAt = Date.now() + playerSpawnsAgainAfter;
-                    dispatcher.broadcastMessage(DashOpCode.PlayerWillSpawnAt, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerWillSpawnAt, serializeState(state), null, sender);
                     break;
                 }
                 case DashOpCode.PlayerIsIdle: {
@@ -288,12 +329,12 @@ function handleMessage(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkr
                     player.lastKnownY = toNumber(data['positionY'], player.lastKnownY);
                     player.spawnsAgainAt = 0;
                     player.lastKnownVelocityY = 0.0;
-                    dispatcher.broadcastMessage(DashOpCode.PlayerIsIdle, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerIsIdle, serializeState(state), null, sender);
                     break;
                 }
                 case DashOpCode.PlayerCorrectPosition:
                     updatePosition(player, readJson(nk, message.data));
-                    dispatcher.broadcastMessage(DashOpCode.PlayerCorrectPosition, JSON.stringify(state), null, sender);
+                    dispatcher.broadcastMessage(DashOpCode.PlayerCorrectPosition, serializeState(state), null, sender);
                     break;
             }
             break;
@@ -328,18 +369,19 @@ function startMatch(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkrunt
     // Kick the players that are not in the lobby.
     const outOfLobbyPlayers = state.presences.filter(p => !state.players[p.userId] || !state.players[p.userId].isInLobby);
     if (outOfLobbyPlayers.length > 0) {
-        dispatcher.broadcastMessage(DashOpCode.PlayerKickedFromLobby, JSON.stringify(state), outOfLobbyPlayers);
+        dispatcher.broadcastMessage(DashOpCode.PlayerKickedFromLobby, serializeState(state), outOfLobbyPlayers);
     }
 
     // Generate pipes based on the number of players.
     const pipesCount = Math.max(Math.min(playersInLobbyCount, 42), 3);
     state.pipesPositions = [];
     for (let i = 0; i < pipesCount; i++) {
-        state.pipesPositions.push(Math.random() * 2 - 1);
+        // 4 decimals is ~0.03px on screen and keeps every message shorter.
+        state.pipesPositions.push(Math.round((Math.random() * 2 - 1) * 10000) / 10000);
     }
 
     // Notify all players that the match has started.
-    dispatcher.broadcastMessage(DashOpCode.MatchStarted, JSON.stringify(state), inLobbyPlayers);
+    dispatcher.broadcastMessage(DashOpCode.MatchStarted, serializeState(state), inLobbyPlayers);
 }
 
 let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, dispatcher: nkruntime.MatchDispatcher, tick: number, state: State, messages: nkruntime.MatchMessage[]) {
@@ -376,7 +418,7 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
             // 10 seconds before the match starts, if there aren't enough players, increase the waiting time.
             if (now > state.matchRunsAt - checkToIncreaseWaitingTime && playersInLobbyCount < minimumPlayers) {
                 state.matchRunsAt = state.matchRunsAt + (checkToIncreaseWaitingTime * 1.5);
-                dispatcher.broadcastMessage(DashOpCode.MatchWaitingTimeIncreased, JSON.stringify(state));
+                dispatcher.broadcastMessage(DashOpCode.MatchWaitingTimeIncreased, serializeState(state));
             }
             return { state };
         }
@@ -409,7 +451,7 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                 } catch (e) {
                     logger.error('Failed to store the match result: %v', e);
                 }
-                dispatcher.broadcastMessage(DashOpCode.MatchFinished, JSON.stringify(state));
+                dispatcher.broadcastMessage(DashOpCode.MatchFinished, serializeState(state));
             }
             return { state };
         }
@@ -449,7 +491,7 @@ let matchLeave: nkruntime.MatchLeaveFunction<State> = function (ctx: nkruntime.C
         }
     }
 
-    dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, JSON.stringify(state));
+    dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, serializeState(state));
 
     return { state };
 }
