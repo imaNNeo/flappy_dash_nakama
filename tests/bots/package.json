@@ -1,0 +1,12 @@
+{
+  "name": "flappy-dash-bots",
+  "private": true,
+  "type": "module",
+  "description": "Headless bots that check the match handler survives leaves, reconnects and bad input",
+  "scripts": {
+    "test": "node scenarios.mjs"
+  },
+  "dependencies": {
+    "@heroiclabs/nakama-js": "^2.8.0"
+  }
+}

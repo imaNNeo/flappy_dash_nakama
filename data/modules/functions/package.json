@@ -4,15 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "~5.9.3"
   },
   "dependencies": {
-    "nakama-runtime": "github:heroiclabs/nakama-common"
+    "nakama-runtime": "github:heroiclabs/nakama-common#v1.49.0"
   }
 }
