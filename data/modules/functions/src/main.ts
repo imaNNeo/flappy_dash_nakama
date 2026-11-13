@@ -16,7 +16,7 @@ let InitModule: nkruntime.InitModule = function (
     });
 
     createMainLeaderboard(ctx, logger, nk);
-    createMainMatch(nk);
+    getOrCreateWaitingMatch(nk);
     initializer.registerRpc("get_waiting_match", getWaitingMatchRpc);
     initializer.registerRpc("get_match_result", getMatchResultRpc);
     initializer.registerRpc("get_last_match_overview", getLastMatchOverview);
@@ -44,40 +44,23 @@ function createMainLeaderboard(
     }
 }
 
-function getActiveWaitingMatches(nk: nkruntime.Nakama): string[] {
-    const matches = getWaitingMatches(nk);
-    for (let i = 0; i < matches.length; i++) {
-        const matchId = matches[i];
-        const match = nk.matchGet(matchId);
-        if (!match) {
-            removeWaitingMatch(nk, matchId);
-        }
-    }
-    return getWaitingMatches(nk);
-}
-
-function createMainMatch(nk: nkruntime.Nakama): string | undefined {
-    const matches = getActiveWaitingMatches(nk);
-    if (matches.length <= 0) {
-        return nk.matchCreate(multiDashHandlerName, {});
-    }
-    return undefined;
-}
-
-// RPC function to return a waiting match
+// RPC function to return the match that new players should join
 let getWaitingMatchRpc: nkruntime.RpcFunction = function (
     ctx: nkruntime.Context,
     logger: nkruntime.Logger,
     nk: nkruntime.Nakama,
     payload: string
 ): string {
-    let matches = getActiveWaitingMatches(nk);
+    return getOrCreateWaitingMatch(nk);
+}
 
-    if (matches.length > 0) {
-        return matches[0];
-    } else {
-        return createMainMatch(nk) || "";
+function parseRpcPayload(payload: string): { [key: string]: any } {
+    let parsed: any = JSON.parse(payload || "{}");
+    // The web client wraps the payload in an extra JSON string.
+    if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
     }
+    return parsed || {};
 }
 
 // RPC function to return a match result
@@ -87,8 +70,10 @@ let getMatchResultRpc: nkruntime.RpcFunction = function (
     nk: nkruntime.Nakama,
     payload: string
 ): string {
-    const payloadJson = JSON.parse(payload);
-    const matchId = payloadJson["matchId"].toString();
+    const matchId = String(parseRpcPayload(payload)["matchId"] || "");
+    if (!matchId) {
+        throw new Error("matchId is required");
+    }
     const matchResult = getMatchResult(nk, matchId);
     if (!matchResult) {
         throw new Error(`No match result found for matchId: ${matchId}`);

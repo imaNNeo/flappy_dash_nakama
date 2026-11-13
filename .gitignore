@@ -1,2 +1,3 @@
 data/logfile.log
 .env
+node_modules/

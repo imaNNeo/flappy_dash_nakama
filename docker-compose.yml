@@ -1,16 +1,18 @@
-version: '3'
 services:
   postgres:
     container_name: postgres
-    image: postgres:12.2-alpine
+    # Stays on the 12.x major so the existing data directory on the Pi keeps working.
+    # Moving to a newer major needs a dump/restore (see README).
+    image: postgres:12.22-alpine
     env_file:
       - .env
     volumes:
       - /mnt/ssd/flappy-dash-nakama/pgdata:/var/lib/postgresql/data
     expose:
       - "5432"
+    # Only reachable from the Pi itself (it used to be open on every interface).
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "nakama"]
       interval: 3s
@@ -19,7 +21,8 @@ services:
   nakama:
     container_name: nakama
     user: "1000:1000"
-    image: nakama-arm64:3.31.0
+    # The official image is multi-arch (amd64 + arm64), so no custom build is needed on the Pi.
+    image: heroiclabs/nakama:3.42.0
     env_file:
       - .env
     entrypoint:
@@ -32,7 +35,12 @@ services:
             --data_dir ./data/ \
             --database.address postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}\
             --logger.file /nakama/data/logfile.log \
+            --logger.rotation true \
+            --logger.max_size 50 \
+            --logger.max_backups 3 \
+            --logger.max_age 14 \
             --session.token_expiry_sec 7200 \
+            --session.refresh_token_expiry_sec 604800 \
             --session.encryption_key ${NAKAMA_ENCRYPTION_KEY} \
             --session.refresh_encryption_key ${NAKAMA_REFRESH_ENCRYPTION_KEY} \
             --console.username ${NAKAMA_CONSOLE_USERNAME} \
@@ -45,10 +53,8 @@ services:
             --runtime.env "IS_PRODUCTION=${IS_PRODUCTION}" \
             --runtime.env "TELEGRAM_BOT_API_KEY=${TELEGRAM_BOT_API_KEY}" \
             --runtime.env "TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}" \
-            --runtime.env "APP_BASE_URL=${APP_BASE_URL}" \
+            --runtime.env "APP_BASE_URL=${APP_BASE_URL}"
     restart: unless-stopped
-    links:
-      - "postgres:db"
     depends_on:
       postgres:
         condition: service_healthy

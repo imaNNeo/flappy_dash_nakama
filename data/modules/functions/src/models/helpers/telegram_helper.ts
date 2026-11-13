@@ -1,3 +1,6 @@
+const telegramRequestTimeoutMs = 1500;
+const telegramBackoffMs = 60 * 1000;
+
 function sendTelegramMessage(
     nk: nkruntime.Nakama, 
     logger: nkruntime.Logger, 
@@ -15,24 +18,38 @@ function sendTelegramMessage(
         return;
     }
 
-    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+    // This runs inside the match loop, which blocks every player of the match
+    // until the request returns. Keep it short and back off when Telegram fails.
+    const backoffKey = "telegram_backoff_until";
+    const backoffUntil = nk.localcacheGet(backoffKey);
+    if (typeof backoffUntil === "number" && Date.now() < backoffUntil) {
+        return;
+    }
 
-    const payload = {
+    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+    const body = JSON.stringify({
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
-    };
-    const body = JSON.stringify(payload);
+    });
 
-    logger.info(`Sending message to Telegram: ${message}, body: ${body}`);
-    const response = nk.httpRequest(
-        url,
-        "post",
-        {
-            "Content-Type": "application/json",
-        },
-        body,
-    );
-    logger.info(`Telegram response: ${response.code}, ${response.body}`);
+    try {
+        const response = nk.httpRequest(
+            url,
+            "post",
+            {
+                "Content-Type": "application/json",
+            },
+            body,
+            telegramRequestTimeoutMs,
+        );
+        if (response.code < 200 || response.code >= 300) {
+            logger.warn(`Telegram responded with ${response.code}: ${response.body}`);
+            nk.localcachePut(backoffKey, Date.now() + telegramBackoffMs);
+        }
+    } catch (e) {
+        logger.warn(`Telegram request failed: ${e}`);
+        nk.localcachePut(backoffKey, Date.now() + telegramBackoffMs);
+    }
 }
 
 function formatMatchResultMessage(ctx: nkruntime.Context, state: State): string {
