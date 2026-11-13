@@ -27,15 +27,15 @@ services:
       - .env
     entrypoint:
       - "/bin/sh"
-      - "-ecx"
+      - "-ec"
       - >
           /nakama/nakama migrate up --database.address postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} &&
           exec /nakama/nakama \
             --name nakama1 \
             --data_dir ./data/ \
-            --database.address postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}\
+            --database.address postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} \
             --logger.file /nakama/data/logfile.log \
-            --logger.rotation true \
+            --logger.rotation=true \
             --logger.max_size 50 \
             --logger.max_backups 3 \
             --logger.max_age 14 \
