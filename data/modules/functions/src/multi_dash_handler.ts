@@ -411,12 +411,20 @@ function handlePlayerInput(nk: nkruntime.Nakama, dispatcher: nkruntime.MatchDisp
             player.anchorTime = Math.max(arrivedAnchor, player.minAnchorTime);
         }
     }
+    // Always build a new array and assign it: arrays kept in the match state
+    // can be wrapped Go slices in Nakama's runtime, and push() on those doesn't
+    // always stick (the first jump of a life got lost that way).
+    const jumps: number[] = [];
+    for (const seq of player.pendingJumps) {
+        jumps.push(seq);
+    }
     for (const seq of packet.jumpSeqs) {
-        if (seq > player.lastSeq && seq <= packet.upToSeq && player.pendingJumps.indexOf(seq) < 0) {
-            player.pendingJumps.push(seq);
+        if (seq > player.lastSeq && seq <= packet.upToSeq && jumps.indexOf(seq) < 0) {
+            jumps.push(seq);
         }
     }
-    player.pendingJumps.sort((a, b) => a - b);
+    jumps.sort((a, b) => a - b);
+    player.pendingJumps = jumps;
 }
 
 function canStartNewLife(state: State, player: PlayerData, now: number): boolean {
@@ -469,13 +477,16 @@ function simulatePlayer(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nk
     }
     target = Math.min(target, player.lastSeq + maxTicksPerLoop);
 
+    // Read-only here; the jumps left over are assigned back below (see the
+    // note in handlePlayerInput about arrays in the match state).
     const jumps = player.pendingJumps;
+    let nextJump = 0;
     while (player.lastSeq < target) {
         const seq = player.lastSeq + 1;
-        while (jumps.length > 0 && jumps[0] < seq) {
-            jumps.shift();
+        while (nextJump < jumps.length && jumps[nextJump] < seq) {
+            nextJump++;
         }
-        const jump = jumps.length > 0 && jumps[0] === seq;
+        const jump = nextJump < jumps.length && jumps[nextJump] === seq;
         const result = stepDash(sim, jump, state.pipesPositions);
         player.lastSeq = seq;
         if (result === DashStepResult.Scored) {
@@ -485,6 +496,12 @@ function simulatePlayer(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nk
             onPlayerDied(dispatcher, state, player, now);
             return;
         }
+    }
+    while (nextJump < jumps.length && jumps[nextJump] <= player.lastSeq) {
+        nextJump++;
+    }
+    if (nextJump > 0) {
+        player.pendingJumps = jumps.slice(nextJump);
     }
 }
 
