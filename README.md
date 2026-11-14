@@ -13,6 +13,18 @@ make runLocally         # builds the TypeScript module and starts Postgres + Nak
 
 The Nakama image is the official multi-arch `heroiclabs/nakama`, so the same compose file works on amd64 and on the Pi (arm64).
 
+### Server-authoritative netcode
+
+The match handler runs the game: clients only send their jumps (input commands), the
+server simulates every dash at 60 ticks/s and sends 20 binary snapshots per second, and the
+clients predict their own dash and interpolate the others (Valve's Source networking model).
+The shared physics lives in `data/modules/functions/src/netcode/`; the client has an exact
+Dart twin. See [docs/netcode.md](https://github.com/imaNNeo/flappy_dash/blob/main/docs/netcode.md)
+in the client repo for the full picture.
+
+`tests/physics/golden.mjs --check` verifies the server physics against
+`tests/physics/physics_golden.json`, the same file the client's parity test uses.
+
 ### Checking the match handler
 
 `tests/bots` has headless clients that reproduce the problems that used to kill lobbies
