@@ -1,11 +1,12 @@
 // Headless bots that exercise the Flappy Dash Nakama match handler.
 import { Client } from "@heroiclabs/nakama-js";
+import { decodeSnapshot, encodeInput } from "./netbot.mjs";
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = process.env.PORT || "7350";
 const SSL = process.env.SSL === "true";
 const SERVER_KEY = process.env.SERVER_KEY || "defaultkey";
-const OP = { Welcome: 100, Presences: 102, Started: 103, Finished: 104, Ping: 105, Pong: 106, JoinLobby: 200, PStarted: 201, Jumped: 202, Kicked: 206 };
+const OP = { Welcome: 100, Presences: 102, Started: 103, Finished: 104, Ping: 105, Pong: 106, Snapshot: 110, JoinLobby: 200, PStarted: 201, Kicked: 206, Input: 210 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const enc = (o) => new TextEncoder().encode(JSON.stringify(o));
 const dec = (d) => JSON.parse(new TextDecoder().decode(d));
@@ -16,7 +17,7 @@ async function bot(name) {
   const b = { name, client, session, events: [], sockets: [] };
   b.connect = async () => {
     const socket = client.createSocket(SSL, false);
-    socket.onmatchdata = (m) => b.events.push({ op: m.op_code, data: m.data ? dec(m.data) : null, at: Date.now(), socket });
+    socket.onmatchdata = (m) => b.events.push({ op: m.op_code, data: m.op_code === OP.Snapshot ? decodeSnapshot(m.data) : m.data && m.data.byteLength ? dec(m.data) : null, at: Date.now(), socket });
     socket.ondisconnect = () => {};
     await socket.connect(session, true);
     b.sockets.push(socket);
@@ -98,29 +99,32 @@ async function main() {
     while (Date.now() - t0 < 45000 && !(a.count(OP.Started) && b2.count(OP.Started))) await sleep(500);
     check("reconnected player still receives MatchStarted", a.events.some((e) => e.op === OP.Started && e.socket === s2), `a=${a.count(OP.Started)} b=${b2.count(OP.Started)}`);
 
-    // during the running phase: jumps are relayed, and the next waiting match is different
-    await s2.sendMatchState(matchId, OP.PStarted, enc({}));
-    await s2.sendMatchState(matchId, OP.Jumped, enc({ positionX: 10.5, positionY: -3.25, velocityY: -300, timestamp: Date.now() }));
-    await sleep(500);
-    const jump = b2.events.find((e) => e.op === OP.Jumped);
-    check("jump is relayed to the other player", !!jump && jump.data.players[a.session.user_id].lastKnownX === 10.5);
+    // during the running phase the server simulates the player's inputs
+    const lifeStart = 5000;
+    await s2.sendMatchState(matchId, OP.Input, encodeInput(lifeStart, lifeStart + 2, [lifeStart]));
+    await sleep(600);
+    const me = a.events.filter((e) => e.op === OP.Started).pop().data.roster.indexOf(a.session.user_id);
+    const seen = b2.events.filter((e) => e.op === OP.Snapshot).flatMap((e) => e.data.entries).filter((e) => e.rosterIndex === me && e.state === 1);
+    check("the server simulates a player from their input commands", seen.length > 0 && seen[seen.length - 1].seq >= lifeStart + 2, JSON.stringify(seen[seen.length - 1]));
+    const started = b2.events.find((e) => e.op === OP.PStarted && e.data.players[a.session.user_id].playingState === 1);
+    check("the other player is told that the life started", !!started);
     const next = await rawRpc(a);
     check("a new waiting match is handed out once a match starts", next && next !== matchId);
     // a fresh player trying to join the running match is rejected
     const c = await bot("rc"); const sc = await c.connect();
     let rejected = false; try { await sc.joinMatch(matchId); } catch (e) { rejected = true; }
     check("new players can't join a running match", rejected);
-    // the reconnecting player can rejoin a running match and keeps their score
-    await s2.sendMatchState(matchId, OP.PStarted, enc({}));
-    await s2.sendMatchState(matchId, 203, enc({ positionX: 1, positionY: 1, velocityY: 1 }));
-    await sleep(300);
+    // the reconnecting player can rejoin a running match and keeps their place
+    // and score (the server keeps simulating them meanwhile)
+    const scoreBefore = b2.events.filter((e) => e.data && e.data.players).pop().data.players[a.session.user_id].score;
     s2.disconnect(false);
     await sleep(300);
     const s3 = await a.connect();
     await s3.joinMatch(matchId);
     await sleep(300);
     const welcome = a.events.filter((e) => e.op === OP.Welcome && e.socket === s3).pop();
-    check("player rejoining a running match keeps their score", welcome && welcome.data.players[a.session.user_id].score === 1, JSON.stringify(welcome?.data.players[a.session.user_id]?.score));
+    const mine = welcome?.data.players[a.session.user_id];
+    check("player rejoining a running match keeps their place and score", mine && mine.rosterIndex === me && mine.score === scoreBefore, JSON.stringify(mine));
     [a, b2, c].forEach((x) => x.sockets.forEach((s) => s.disconnect(false)));
   }
 
