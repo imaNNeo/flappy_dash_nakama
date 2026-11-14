@@ -21,6 +21,7 @@ let InitModule: nkruntime.InitModule = function (
     initializer.registerRpc("get_match_result", getMatchResultRpc);
     initializer.registerRpc("get_last_match_overview", getLastMatchOverview);
     initializer.registerRpc("get_config", getConfig);
+    initializer.registerRpc("can_manage_bots", canManageBotsRpc);
 }
 
 function createMainLeaderboard(

@@ -35,3 +35,14 @@ ping under load and, with `NAKAMA_PID` set, the Nakama process's CPU use:
 ```sh
 NAKAMA_PID=$(pgrep -f "nakama --name") node load.mjs 20 30   # 20 bots, 30 seconds of play
 ```
+
+## Server-side bots
+
+`server_bots.mjs` checks the bots that live inside the match (`src/bots.ts`): adding and
+removing them, a match with one person + bots, bots flying and scoring, and who may manage them.
+
+```sh
+node server_bots.mjs dev                  # server with IS_PRODUCTION=false (everyone may add bots)
+node server_bots.mjs admin-id             # prints the user id of the test admin device
+node server_bots.mjs prod                 # server with IS_PRODUCTION=true BOT_ADMIN_USER_IDS=<that id>
+```

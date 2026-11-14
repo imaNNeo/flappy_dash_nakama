@@ -87,6 +87,8 @@ interface PlayerData {
     minAnchorTime: number;
     // The snapshot entry last sent for this player (for delta compression).
     lastSentEntry: SnapshotEntry | null;
+    // Set for server-side bots (see bots.ts); they have no presence.
+    bot?: BotBrain;
 }
 
 interface State {
@@ -133,6 +135,9 @@ enum DashOpCode {
     PlayerDisplayNameUpdated = 208,
     PlayerWillSpawnAt = 209,
     PlayerInput = 210,
+    // Client -> server: add or remove a bot in a waiting match (see bots.ts).
+    BotAdd = 211,
+    BotRemove = 212,
 
     // Server -> clients, binary, see net_protocol.ts
     MatchSnapshot = 110,
@@ -193,6 +198,18 @@ function inLobbyPresences(state: State): nkruntime.Presence[] {
     return state.presences.filter(p => state.players[p.userId] && state.players[p.userId].isInLobby);
 }
 
+// The bots waiting in the lobby (they have no presence).
+function inLobbyBots(state: State): PlayerData[] {
+    const bots: PlayerData[] = [];
+    for (const userId in state.players) {
+        const player = state.players[userId];
+        if (player.bot && player.isInLobby) {
+            bots.push(player);
+        }
+    }
+    return bots;
+}
+
 // Positions only need sub-pixel precision; full doubles make up a big part of
 // every message.
 function round2(n: number): number {
@@ -218,6 +235,7 @@ function serializeState(state: State): string {
             playingState: p.playingState,
             spawnsAgainAt: p.spawnsAgainAt,
             rosterIndex: p.rosterIndex,
+            isBot: !!p.bot,
         };
     }
     return JSON.stringify({
@@ -356,6 +374,19 @@ function handleMessage(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkr
                     dispatcher.broadcastMessage(DashOpCode.PlayerJoinedTheLobby, serializeState(state), null, sender);
                     sendTelegramMessage(nk, logger, ctx, formatPlayerJoinedMessage(ctx, state, sender.userId));
                     break;
+                case DashOpCode.BotAdd:
+                case DashOpCode.BotRemove:
+                    if (!canManageBots(ctx, sender.userId)) {
+                        logger.warn('User %s is not allowed to manage bots.', sender.userId);
+                        break;
+                    }
+                    const changed = message.opCode === DashOpCode.BotAdd
+                        ? addBot(nk, logger, state)
+                        : removeBot(state);
+                    if (changed) {
+                        dispatcher.broadcastMessage(DashOpCode.MatchPresencesUpdated, serializeState(state));
+                    }
+                    break;
                 case DashOpCode.PlayerDisplayNameUpdated:
                     const account = nk.accountGetId(sender.userId);
                     player.displayName = account.user.displayName || '';
@@ -381,6 +412,12 @@ function presenceOf(state: State, userId: string): nkruntime.Presence | null {
         if (p.userId === userId) {
             return p;
         }
+    }
+    const player = state.players[userId];
+    if (player && player.bot) {
+        // Clients tell whose event it is by its sender, so a bot's events
+        // carry a stand-in presence (it isn't connected to anything).
+        return botPresence(player);
     }
     return null;
 }
@@ -587,7 +624,8 @@ function startMatch(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkrunt
     }
 
     const inLobbyPlayers = inLobbyPresences(state);
-    const playersInLobbyCount = inLobbyPlayers.length;
+    const bots = inLobbyBots(state);
+    const playersInLobbyCount = inLobbyPlayers.length + bots.length;
     state.currentPhase = MatchPhase.Running;
 
     let matchDuration: number;
@@ -630,6 +668,15 @@ function startMatch(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkrunt
         player.lastKnownX = player.spawnX;
         player.lastKnownY = player.spawnY;
     }
+    for (const bot of bots) {
+        bot.rosterIndex = state.roster.length;
+        state.roster.push(bot.userId);
+        bot.playingState = PlayingState.Idle;
+        bot.spawnX = Math.floor(Math.random() * pipesCount) * physicsPipesDistance;
+        bot.spawnY = 0;
+        bot.lastKnownX = bot.spawnX;
+        bot.lastKnownY = bot.spawnY;
+    }
     state.forceFullSnapshot = true;
 
     // Notify all players that the match has started.
@@ -661,7 +708,9 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                 }
             }
 
-            const playersInLobbyCount = inLobbyPresences(state).length;
+            // Bots count as players, but a match never starts with bots only.
+            const humansInLobbyCount = inLobbyPresences(state).length;
+            const playersInLobbyCount = humansInLobbyCount > 0 ? humansInLobbyCount + inLobbyBots(state).length : 0;
             if (now > state.matchRunsAt && playersInLobbyCount >= minimumPlayers) {
                 startMatch(ctx, logger, nk, dispatcher, state);
                 return { state };
@@ -695,7 +744,11 @@ let matchLoop: nkruntime.MatchLoopFunction<State> = function (ctx: nkruntime.Con
                     continue;
                 }
                 try {
-                    simulatePlayer(ctx, logger, nk, dispatcher, state, player, now, matchIsOver);
+                    if (player.bot) {
+                        simulateBot(dispatcher, state, player, now);
+                    } else {
+                        simulatePlayer(ctx, logger, nk, dispatcher, state, player, now, matchIsOver);
+                    }
                 } catch (e) {
                     logger.warn('Failed to simulate player %s: %v', userId, e);
                 }
@@ -760,6 +813,11 @@ let matchLeave: nkruntime.MatchLeaveFunction<State> = function (ctx: nkruntime.C
             if (!stillConnected) {
                 delete state.players[presence.userId];
             }
+        }
+        // Bots only keep people company: when the last person leaves the
+        // lobby, they go too.
+        if (state.presences.length === 0) {
+            removeAllBots(state);
         }
     }
 
