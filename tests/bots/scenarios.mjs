@@ -106,6 +106,8 @@ async function main() {
     const me = a.events.filter((e) => e.op === OP.Started).pop().data.roster.indexOf(a.session.user_id);
     const seen = b2.events.filter((e) => e.op === OP.Snapshot).flatMap((e) => e.data.entries).filter((e) => e.rosterIndex === me && e.state === 1);
     check("the server simulates a player from their input commands", seen.length > 0 && seen[seen.length - 1].seq >= lifeStart + 2, JSON.stringify(seen[seen.length - 1]));
+    // the jump in the life's very first tick must count (it was lost once)
+    check("a jump in the first tick of a life is applied", seen.length > 0 && seen[0].vy < 0, JSON.stringify(seen[0]));
     const started = b2.events.find((e) => e.op === OP.PStarted && e.data.players[a.session.user_id].playingState === 1);
     check("the other player is told that the life started", !!started);
     const next = await rawRpc(a);
