@@ -4,6 +4,7 @@
     "src/netcode/dash_physics.ts",
     "src/netcode/net_protocol.ts",
     "src/multi_dash_handler.ts",
+    "src/bots.ts",
     "src/match_storage_helper.ts",
     "src/models/responses/match_result_response.ts",
     "src/models/responses/match_overview_response.ts",
