@@ -10,7 +10,8 @@
     "src/models/responses/match_overview_response.ts",
     "src/models/match_result.ts",
     "src/models/match_overview.ts",
-    "src/models/helpers/telegram_helper.ts"
+    "src/models/helpers/telegram_helper.ts",
+    "src/game.ts"
   ],
   "compilerOptions": {
     "target": "es5",

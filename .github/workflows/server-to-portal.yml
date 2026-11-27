@@ -1,0 +1,64 @@
+name: Server module to the shared Nakama
+
+# Flappy Dash runs on the one Nakama server every game on games.imanneo.dev shares (imaNNeo/games,
+# nakama/). Every push to main that changes the server code builds it (tsc, then
+# scripts/make-module.mjs -> build/module.js), copies it into that repo's nakama/games/flappy_dash/,
+# rebuilds the shared bundle, checks it starts in a real Nakama and pushes it to the
+# flappy-dash-server-update branch. There a workflow merges it; the server pulls main within 5 minutes
+# and restarts Nakama within 2 more.
+# Needs the PORTAL_DEPLOY_KEY secret: the private half of a write deploy key on imaNNeo/games.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - data/modules/functions/**
+      - .github/workflows/server-to-portal.yml
+  workflow_dispatch:
+
+concurrency:
+  group: server-to-portal
+  cancel-in-progress: true
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the games portal
+        uses: actions/checkout@v4
+        with:
+          repository: imaNNeo/games
+          ssh-key: ${{ secrets.PORTAL_DEPLOY_KEY }}
+          path: .portal
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the server module
+        working-directory: data/modules/functions
+        run: npm install --no-audit --no-fund && npx tsc && node scripts/make-module.mjs
+
+      - name: Put the module in and rebuild the shared bundle
+        run: .portal/nakama/scripts/update-game.sh flappy_dash data/modules/functions/build/module.js
+
+      - name: The shared bundle starts in Nakama
+        run: .portal/nakama/test/load.sh
+
+      - name: Push to the portal's flappy-dash-server-update branch
+        working-directory: .portal
+        env:
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+        run: |
+          git add -A nakama/games/flappy_dash nakama/build
+          if git diff --cached --quiet; then
+            echo "The server module is already up to date on the portal."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Update Flappy Dash server module to $(git -C .. rev-parse --short=7 HEAD)" -m "Built from $SOURCE"
+          git push --force origin HEAD:refs/heads/flappy-dash-server-update
