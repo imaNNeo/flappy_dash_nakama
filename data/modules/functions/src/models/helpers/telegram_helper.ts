@@ -7,10 +7,10 @@ function sendTelegramMessage(
     ctx: nkruntime.Context, 
     message: string,
 ) {
-    const TELEGRAM_TOKEN = ctx.env.TELEGRAM_BOT_API_KEY || '';
-    const TELEGRAM_CHAT_ID = ctx.env.TELEGRAM_CHANNEL_ID || '';
+    const TELEGRAM_TOKEN = flappyEnv(ctx, "TELEGRAM_BOT_API_KEY");
+    const TELEGRAM_CHAT_ID = flappyEnv(ctx, "TELEGRAM_CHANNEL_ID");
 
-    if (ctx.env.IS_PRODUCTION != "true") {
+    if (flappyEnv(ctx, "IS_PRODUCTION") != "true") {
         return;
     }
 
@@ -79,7 +79,7 @@ ${sortedPlayers}
 }
 
 function formatPlayerJoinedMessage(ctx: nkruntime.Context, state: State, playerId: string): string {
-    const BASE_URL = ctx.env.APP_BASE_URL || '';
+    const BASE_URL = flappyEnv(ctx, "APP_BASE_URL");
     const matchId = ctx.matchId || "Unknown";
     const lobbyUrl = `${BASE_URL}/#/lobby/${matchId}`;
 

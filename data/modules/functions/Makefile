@@ -1,5 +1,5 @@
 generateJS:
-	npx tsc
+	npx tsc && node scripts/make-module.mjs
 
 setupProject:
 	npm install

@@ -1,10 +1,13 @@
+// Flappy Dash runs on the one Nakama server every game on games.imanneo.dev shares (imaNNeo/games,
+// nakama/). Its build registers what FLAPPY_DASH_GAME lists below, so this InitModule is only used when
+// this repo's own docker-compose.yml runs the module on its own (local development).
+// The names stay as they were before the shared server: the store apps call them.
 let InitModule: nkruntime.InitModule = function (
     ctx: nkruntime.Context,
     logger: nkruntime.Logger,
     nk: nkruntime.Nakama,
     initializer: nkruntime.Initializer,
 ) {
-    initializeMatchStorageHelper(initializer, logger);
     initializer.registerMatch(multiDashHandlerName, {
         matchInit,
         matchJoinAttempt,
@@ -14,14 +17,32 @@ let InitModule: nkruntime.InitModule = function (
         matchTerminate,
         matchSignal,
     });
-
-    createMainLeaderboard(ctx, logger, nk);
-    getOrCreateWaitingMatch(nk);
     initializer.registerRpc("get_waiting_match", getWaitingMatchRpc);
     initializer.registerRpc("get_match_result", getMatchResultRpc);
     initializer.registerRpc("get_last_match_overview", getLastMatchOverview);
     initializer.registerRpc("get_config", getConfig);
     initializer.registerRpc("can_manage_bots", canManageBotsRpc);
+    flappyDashSetup(ctx, logger, nk, initializer);
+}
+
+// What doesn't register a match or an RPC: run once when the server starts.
+function flappyDashSetup(
+    ctx: nkruntime.Context,
+    logger: nkruntime.Logger,
+    nk: nkruntime.Nakama,
+    initializer: nkruntime.Initializer,
+) {
+    initializeMatchStorageHelper(initializer, logger);
+    createMainLeaderboard(ctx, logger, nk);
+    getOrCreateWaitingMatch(nk);
+}
+
+// A server setting. On the shared server every game sees every setting, so Flappy Dash's start with
+// FLAPPY_DASH_ (FLAPPY_DASH_IS_PRODUCTION); the plain name is still read for this repo's own compose.
+function flappyEnv(ctx: nkruntime.Context, name: string): string {
+    const env = ctx.env || {};
+    const value = env["FLAPPY_DASH_" + name];
+    return value !== undefined && value !== "" ? value : (env[name] || "");
 }
 
 function createMainLeaderboard(

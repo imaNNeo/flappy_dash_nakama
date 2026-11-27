@@ -2,7 +2,19 @@
 
 This is the back-end code using [Nakam](https://heroiclabs.com/nakama/) for the [FlappyDash](https://github.com/imaNNeo/flappy_dash) project. You can play it live her: [play.flappydash.com](https://play.flappydash.com)
 
-## Running it
+## Where it runs (since 2026-11-27)
+
+Flappy Dash runs on the one Nakama server every multiplayer game on games.imanneo.dev shares
+(imaNNeo/games, [`nakama/`](https://github.com/imaNNeo/games/tree/main/nakama), whose README explains
+how games plug in). `api.flappydash.com` points there, with the same server key and the same names
+(match `multiDashMatchHandler`, the five RPCs, `main_leaderboard`), so the store apps keep working.
+Every push to `main` that changes `data/modules/functions` is built into `build/module.js`
+(`npx tsc && node scripts/make-module.mjs`) and copied there by
+`.github/workflows/server-to-portal.yml` (secret `PORTAL_DEPLOY_KEY`); nothing to deploy by hand.
+`src/game.ts` lists what the shared server registers. Server settings there start with `FLAPPY_DASH_`
+(`FLAPPY_DASH_IS_PRODUCTION`, ...); this repo's own compose still passes the plain names.
+
+## Running it on its own (local development)
 
 ```sh
 cp .env.template .env   # then fill in real values

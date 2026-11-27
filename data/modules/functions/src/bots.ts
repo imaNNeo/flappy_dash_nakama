@@ -41,7 +41,7 @@ interface BotBrain {
 }
 
 function botAdminUserIds(ctx: nkruntime.Context): string[] {
-    const raw = (ctx.env && ctx.env.BOT_ADMIN_USER_IDS) || "";
+    const raw = flappyEnv(ctx, "BOT_ADMIN_USER_IDS");
     return raw.split(",").map(s => s.trim()).filter(s => s.length > 0);
 }
 
@@ -49,7 +49,7 @@ function canManageBots(ctx: nkruntime.Context, userId: string): boolean {
     if (!userId) {
         return false;
     }
-    if (!ctx.env || ctx.env.IS_PRODUCTION !== "true") {
+    if (flappyEnv(ctx, "IS_PRODUCTION") !== "true") {
         return true;
     }
     return botAdminUserIds(ctx).indexOf(userId) >= 0;
